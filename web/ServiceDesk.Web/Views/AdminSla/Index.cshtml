@@ -1,0 +1,237 @@
+@model ServiceDesk.Web.Models.Admin.SlaRulesListResponse
+
+@{
+    ViewData["Title"] = "SLA";
+    Layout = "_AdminSLALayout"; // ✅ usa tu layout admin que ya tiene Styles/Scripts
+}
+
+@section Styles {
+<style>
+  /* ===== AdminSLA/Index - PRO ===== */
+  .as-wrap{ max-width: 1180px; }
+  .as-sub{ color: rgba(255,255,255,.62); }
+
+  .as-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    margin-bottom: 16px;
+  }
+
+  .as-title{
+    font-size: 54px;
+    font-weight: 900;
+    letter-spacing: .2px;
+    margin:0;
+    line-height:1.05;
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+
+  .as-badge{
+    display:inline-flex;
+    align-items:center;
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 900;
+    border: 1px solid rgba(255,193,7,.35);
+    background: rgba(255,193,7,.12);
+    color: rgba(255,193,7,.95);
+  }
+
+  .as-actions .btn{
+    min-height: 46px;
+    padding: 10px 18px;
+    font-weight: 800;
+    border-radius: 999px;
+  }
+
+  /* Card / Table */
+  .as-tablecard{
+    overflow:hidden;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: linear-gradient(180deg, rgba(20,22,28,.78), rgba(14,16,20,.70));
+    box-shadow: 0 18px 60px rgba(0,0,0,.45);
+  }
+
+  .as-table{ margin:0; color: rgba(255,255,255,.92); }
+  .as-table thead th{
+    background: rgba(255,255,255,.06);
+    border-bottom: 1px solid rgba(255,255,255,.10) !important;
+    color: rgba(255,255,255,.88);
+    font-weight: 900;
+    padding: 16px 18px;
+  }
+  .as-table td{
+    border-color: rgba(255,255,255,.10) !important;
+    padding: 16px 18px;
+    vertical-align: middle;
+  }
+  .as-table tbody tr:hover{ background: rgba(255,255,255,.03); }
+
+  /* Priority pill */
+  .as-pri{
+    display:inline-flex;
+    align-items:center;
+    gap:.55rem;
+    padding: .38rem .85rem;
+    border-radius: 999px;
+    font-weight: 900;
+    font-size: .86rem;
+    letter-spacing: .2px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(255,255,255,.06);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    white-space: nowrap;
+  }
+  .as-pri::before{
+    content:"";
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.35);
+    box-shadow: 0 0 0 6px rgba(255,255,255,.06);
+  }
+  .as-pri.p1{ border-color: rgba(220,53,69,.35); background: rgba(220,53,69,.10); }
+  .as-pri.p1::before{ background: rgba(220,53,69,.95); box-shadow: 0 0 0 6px rgba(220,53,69,.16); }
+
+  .as-pri.p2{ border-color: rgba(255,193,7,.35); background: rgba(255,193,7,.10); }
+  .as-pri.p2::before{ background: rgba(255,193,7,.95); box-shadow: 0 0 0 6px rgba(255,193,7,.16); }
+
+  .as-pri.p3{ border-color: rgba(13,110,253,.35); background: rgba(13,110,253,.10); }
+  .as-pri.p3::before{ background: rgba(13,110,253,.95); box-shadow: 0 0 0 6px rgba(13,110,253,.16); }
+
+  /* Form row inside table */
+  .as-form{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    justify-content:flex-start;
+    flex-wrap:wrap;
+  }
+
+  .as-hours{
+    width: 140px;
+    min-height: 44px;
+    border-radius: 12px !important;
+  }
+
+  .as-save{
+    min-height: 44px;
+    padding: 10px 16px;
+    border-radius: 999px !important;
+    font-weight: 900;
+    box-shadow: 0 14px 34px rgba(13,110,253,.18);
+  }
+  .as-save:hover{
+    box-shadow: 0 18px 44px rgba(13,110,253,.22);
+  }
+
+  .as-right{ text-align:right; }
+  .as-muted{ color: rgba(255,255,255,.55); }
+
+  /* id chip */
+  .as-id{
+    display:inline-flex;
+    align-items:center;
+    padding: .30rem .60rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.05);
+    color: rgba(255,255,255,.70);
+    font-size: .82rem;
+    font-weight: 800;
+  }
+
+  /* alert nicer inside page */
+  .alert{ border-radius: 14px; border: 1px solid rgba(255,255,255,.10); }
+</style>
+}
+
+<div class="as-wrap mx-auto">
+  <div class="as-head">
+    <div>
+      <h1 class="as-title">
+        Parámetros SLA
+        <span class="as-badge">Administrador</span>
+      </h1>
+      <div class="as-sub mt-2">
+        Configura horas por prioridad (<strong>P1</strong>, <strong>P2</strong>, <strong>P3</strong>).
+      </div>
+    </div>
+
+    <div class="as-actions">
+      <a class="btn btn-soft" asp-controller="Home" asp-action="Index">Volver</a>
+    </div>
+  </div>
+
+  @if (ViewBag.Error != null)
+  {
+      <div class="alert alert-danger">@ViewBag.Error</div>
+  }
+
+  <div class="as-tablecard">
+    <div class="table-responsive">
+      @if (Model?.Items == null || Model.Items.Count == 0)
+      {
+          <div class="p-4 text-secondary">No hay reglas SLA.</div>
+      }
+      else
+      {
+        <table class="table as-table align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Prioridad</th>
+              <th style="width: 320px;">Horas</th>
+              <th>Actualizado</th>
+              <th class="as-right">Acción</th>
+            </tr>
+          </thead>
+
+          <tbody>
+          @foreach (var r in Model.Items.OrderBy(x => x.Priority))
+          {
+              var pri = (r.Priority ?? "").ToUpperInvariant();
+              var cls = pri == "P1" ? "p1" : pri == "P2" ? "p2" : "p3";
+
+              <tr>
+                <td>
+                  <span class="as-pri @cls">@r.Priority</span>
+                </td>
+
+                <td>
+                  <form method="post" asp-action="Save" class="as-form">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="priority" value="@r.Priority" />
+
+                    <input type="number"
+                           name="hours"
+                           min="1"
+                           max="720"
+                           class="form-control as-hours"
+                           value="@r.Hours" />
+
+                    <button type="submit" class="btn btn-primary as-save">Guardar</button>
+                  </form>
+                </td>
+
+                <td class="text-nowrap as-muted">
+                  @r.UpdatedAtUtc.ToLocalTime().ToString("dd-MM-yyyy HH:mm")
+                </td>
+
+                <td class="as-right">
+                  <span class="as-id">ID: @r.Id</span>
+                </td>
+              </tr>
+          }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+</div>

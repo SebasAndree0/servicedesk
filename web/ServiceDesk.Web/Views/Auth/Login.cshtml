@@ -1,0 +1,104 @@
+@{
+    Layout = "_LayoutAuth";
+    ViewData["Title"] = "Iniciar sesión";
+    var returnUrl = (string)(ViewBag.ReturnUrl ?? "/");
+}
+
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-5 col-xl-4">
+        <div class="auth-card p-4 p-md-5">
+            <div class="mb-4">
+                <div class="d-flex align-items-center justify-content-between">
+                    <h2 class="mb-0 fw-bold">Iniciar sesión</h2>
+                    <span class="badge text-bg-dark border border-secondary-subtle">Interno</span>
+                </div>
+                <div class="muted mt-2">
+                    Ingresa con tu cuenta corporativa para acceder a NovaDesk.
+                </div>
+            </div>
+
+            @if (ViewBag.Error != null)
+            {
+                <div class="alert alert-danger border-0" style="background: rgba(220,53,69,.16); color:#ffd7db;">
+                    <div class="fw-semibold">No se pudo iniciar sesión</div>
+                    <div class="small">Credenciales inválidas. Revisa tu usuario/contraseña.</div>
+                </div>
+            }
+
+            <form method="post" asp-action="Login" id="loginForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+
+                <div class="mb-3">
+                    <label class="form-label">Correo o usuario</label>
+                    <div class="input-group">
+                        <span class="input-group-text">👤</span>
+                        <input name="usernameOrEmail"
+                               class="form-control"
+                               placeholder="admin@servicedesk.local"
+                               autocomplete="username"
+                               autofocus />
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Contraseña</label>
+                    <div class="input-group">
+                        <span class="input-group-text">🔒</span>
+                        <input id="pass"
+                               name="password"
+                               type="password"
+                               class="form-control"
+                               placeholder="********"
+                               autocomplete="current-password" />
+                        <button class="btn btn-outline-light" type="button" id="togglePass" style="border-color: rgba(255,255,255,.14);">
+                            Ver
+                        </button>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mt-3">
+
+
+                    <span class="muted small">¿Cuenta nueva? Contacta al administrador</span>
+                </div>
+
+                <div class="d-grid mt-4">
+                    <button class="btn btn-primary btn-lg" type="submit" id="btnLogin">
+                        <span class="me-2" id="btnText">Entrar</span>
+                        <span class="spinner-border spinner-border-sm d-none" id="btnSpin" role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+
+                <div class="muted small mt-3">
+                    Si necesitas una cuenta, pídesela al administrador.
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Ver / ocultar contraseña
+    const pass = document.getElementById("pass");
+    const toggle = document.getElementById("togglePass");
+    toggle?.addEventListener("click", () => {
+        const isPass = pass.type === "password";
+        pass.type = isPass ? "text" : "password";
+        toggle.textContent = isPass ? "Ocultar" : "Ver";
+    });
+
+    // Spinner al enviar
+    const form = document.getElementById("loginForm");
+    const btn = document.getElementById("btnLogin");
+    const spin = document.getElementById("btnSpin");
+    const text = document.getElementById("btnText");
+
+    form?.addEventListener("submit", () => {
+        btn.disabled = true;
+        spin.classList.remove("d-none");
+        text.textContent = "Entrando...";
+    });
+</script>
+}

@@ -1,0 +1,520 @@
+﻿@using System
+@using System.Linq
+
+@{
+    var rolesCsv = (Context.Session.GetString("roles") ?? "");
+    var roles = rolesCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    var esAdmin = roles.Any(r => r.Equals("Admin", StringComparison.OrdinalIgnoreCase));
+
+    var nombre = Context.Session.GetString("display_name") ?? "";
+    var logueado = !string.IsNullOrWhiteSpace(Context.Session.GetString("access_token"));
+
+    var displayName = !string.IsNullOrWhiteSpace(nombre) ? nombre : "Usuario";
+}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@(!string.IsNullOrWhiteSpace(ViewData["Title"]?.ToString()) ? $"{ViewData["Title"]} - NovaDesk" : "NovaDesk")</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/ServiceDesk.Web.styles.css" asp-append-version="true" />
+
+    @* ✅ IMPORTANTE: CSS por página *@
+    @await RenderSectionAsync("Styles", required: false)
+
+    <style>
+        /* =========================
+           Base
+           ========================= */
+        html, body {
+            max-width: 100%;
+            overflow-x: hidden;
+            background: #0b0d10 !important;
+        }
+
+        body {
+            overflow-x: hidden;
+            color: rgba(255,255,255,.92);
+        }
+
+        /* =========================
+           Header SaaS
+           ========================= */
+        .top-accent {
+            height: 3px;
+            background: linear-gradient(90deg,
+                rgba(13,110,253,.0),
+                rgba(13,110,253,.9),
+                rgba(32,201,151,.8),
+                rgba(13,110,253,.0)
+            );
+            opacity: .9;
+        }
+
+        .top-accent.admin {
+            background: linear-gradient(90deg,
+                rgba(255,193,7,.0),
+                rgba(255,193,7,.95),
+                rgba(13,110,253,.85),
+                rgba(255,193,7,.0)
+            );
+            opacity: .98;
+        }
+
+        /* =========================
+           Navbar (fijo)
+           ========================= */
+        .nav-glass {
+            background: rgba(16, 18, 23, .96) !important;
+            border-bottom: 1px solid rgba(255,255,255,.10) !important;
+        }
+
+        .navbar-dark .navbar-nav .nav-link,
+        .navbar-dark .nav-link {
+            color: rgba(255,255,255,.78) !important;
+        }
+
+        .navbar-dark .navbar-nav .nav-link:hover,
+        .navbar-dark .nav-link:hover {
+            color: rgba(255,255,255,.95) !important;
+        }
+
+        /* Dropdown bonito */
+        .navbar .dropdown-menu {
+            border-radius: 14px;
+            overflow: hidden;
+            padding: .35rem;
+            border: 1px solid rgba(255,255,255,.12) !important;
+            background: rgba(20, 22, 28, .98) !important;
+            box-shadow: 0 18px 45px rgba(0,0,0,.45);
+            z-index: 2000;
+            max-width: calc(100vw - 24px);
+        }
+
+        .navbar .dropdown-item {
+            border-radius: 10px;
+            padding: .55rem .75rem;
+        }
+
+        .navbar .dropdown-item:hover {
+            background: rgba(255,255,255,.08);
+        }
+
+        /* User pill */
+        .user-pill {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .35rem .55rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,.12);
+            background: rgba(255,255,255,.04);
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .user-pill:hover {
+            background: rgba(255,255,255,.08);
+            border-color: rgba(255,255,255,.18);
+            color: #fff;
+        }
+
+        .user-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 999px;
+            background: rgba(255,255,255,.35);
+        }
+
+        .user-dot.admin {
+            background: #ffc107;
+            box-shadow: 0 0 0 6px rgba(255,193,7,.12);
+        }
+
+        /* Evita overflow lateral */
+        .container, .container-fluid, .navbar {
+            max-width: 100%;
+        }
+
+        /* =========================
+           Brand NovaDesk
+           ========================= */
+        .brand-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: .60rem;
+            padding: .38rem .72rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,.14);
+            background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+            box-shadow: 0 10px 30px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.08);
+        }
+
+        .brand-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: #0d6efd;
+            box-shadow: 0 0 0 6px rgba(13,110,253,.14), 0 0 18px rgba(13,110,253,.25);
+        }
+
+        .brand-dot.admin {
+            background: #ffc107;
+            box-shadow: 0 0 0 6px rgba(255,193,7,.16), 0 0 18px rgba(255,193,7,.20);
+        }
+
+        .brand-pill:hover {
+            border-color: rgba(255,255,255,.20);
+            background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+            transform: translateY(-1px);
+            transition: 160ms ease;
+        }
+
+        /* =========================
+           NovaDesk - UI Kit (Pro)
+           ========================= */
+
+        .nd-pagehead {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .nd-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 44px;
+            font-weight: 800;
+            letter-spacing: .2px;
+            margin: 0;
+        }
+
+        .nd-title-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            background: #0d6efd;
+            box-shadow: 0 0 0 7px rgba(13,110,253,.18);
+        }
+
+        .nd-badge {
+            display: inline-flex;
+            align-items: center;
+            height: 26px;
+            padding: 0 10px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            border: 1px solid rgba(255,193,7,.35);
+            background: rgba(255,193,7,.12);
+            color: rgba(255,193,7,.95);
+        }
+
+        .nd-subtitle {
+            margin-top: 6px;
+            color: rgba(255,255,255,.60);
+            font-size: 15px;
+        }
+
+        .nd-glass {
+            background: linear-gradient(180deg, rgba(20,22,28,.78), rgba(14,16,20,.70)) !important;
+            border: 1px solid rgba(255,255,255,.10) !important;
+            border-radius: 18px !important;
+            box-shadow: 0 18px 60px rgba(0,0,0,.45);
+        }
+
+        .nd-glass.pad { padding: 22px; }
+
+        /* Botones */
+        .btn-soft {
+            background: rgba(255,255,255,.06);
+            border: 1px solid rgba(255,255,255,.12);
+            color: #fff;
+        }
+
+        .btn-soft:hover {
+            background: rgba(255,255,255,.10);
+            border-color: rgba(255,255,255,.18);
+            color: #fff;
+        }
+
+        /* Forms dark */
+        .form-control, .form-select {
+            background-color: rgba(255,255,255,.06) !important;
+            border: 1px solid rgba(255,255,255,.14) !important;
+            color: rgba(255,255,255,.92) !important;
+        }
+
+        .form-control::placeholder { color: rgba(255,255,255,.40) !important; }
+
+        .form-control:focus, .form-select:focus {
+            background-color: rgba(255,255,255,.08) !important;
+            border-color: rgba(13,110,253,.55) !important;
+            box-shadow: 0 0 0 .2rem rgba(13,110,253,.15) !important;
+        }
+
+        /* Table pro */
+        .nd-tablewrap {
+            overflow: hidden;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,.10);
+        }
+
+        .table.nd-table {
+            margin: 0;
+            color: rgba(255,255,255,.92);
+        }
+
+        .table.nd-table thead th {
+            background: rgba(255,255,255,.06);
+            border-bottom: 1px solid rgba(255,255,255,.10) !important;
+            color: rgba(255,255,255,.88);
+            font-weight: 700;
+        }
+
+        .table.nd-table td, .table.nd-table th {
+            border-color: rgba(255,255,255,.10) !important;
+            vertical-align: middle;
+        }
+
+        .table.nd-table tbody tr:hover { background: rgba(255,255,255,.03); }
+
+        .nd-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 800;
+            border: 1px solid rgba(255,255,255,.12);
+            background: rgba(255,255,255,.06);
+        }
+
+        .nd-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .alert {
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,.10);
+        }
+
+        /* =========================
+           Extras para AdminUsers
+           ========================= */
+
+        /* Quitar el punto azul SOLO si el contenedor tiene .nd-nodot */
+        .nd-nodot .nd-title-dot { display: none !important; }
+
+        /* Título un poquito más pro */
+        .nd-title {
+            font-size: 46px;
+            line-height: 1.05;
+        }
+
+        /* Botones premium */
+        .btn { border-radius: 12px; }
+
+        .btn-primary {
+            border: 1px solid rgba(13,110,253,.55);
+            box-shadow: 0 10px 24px rgba(13,110,253,.12);
+        }
+
+        .btn-primary:hover { box-shadow: 0 14px 34px rgba(13,110,253,.18); }
+
+        .btn-soft { border-radius: 12px; padding: 10px 14px; }
+
+        /* Input group mostrar/ocultar */
+        .input-group .form-control {
+            border-top-right-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+        }
+
+        .input-group .btn {
+            border-top-left-radius: 0 !important;
+            border-bottom-left-radius: 0 !important;
+            padding: 10px 14px;
+            border-color: rgba(255,255,255,.14) !important;
+        }
+
+        .input-group .btn:hover {
+            border-color: rgba(255,255,255,.22) !important;
+        }
+
+        /* Checkbox */
+        .form-check-input {
+            width: 1.15rem;
+            height: 1.15rem;
+            border-color: rgba(255,255,255,.20);
+            background-color: rgba(255,255,255,.06);
+        }
+
+        .form-check-input:checked {
+            background-color: #0d6efd;
+            border-color: rgba(13,110,253,.55);
+        }
+
+        /* Borrar */
+        .btn-outline-danger { border-color: rgba(220,53,69,.55); }
+        .btn-outline-danger:hover { border-color: rgba(220,53,69,.75); }
+    </style>
+</head>
+
+<body class="text-light">
+
+@* ✅ FORM OCULTO para AntiForgeryToken usado por JS *@
+<form id="ticket-action-form" method="post" style="display:none">
+    @Html.AntiForgeryToken()
+</form>
+
+<header>
+    <div class="top-accent @(esAdmin ? "admin" : "")"></div>
+
+    <nav class="navbar navbar-expand-lg navbar-dark nav-glass">
+        <div class="container-fluid">
+
+            <a class="navbar-brand fw-semibold" asp-area="" asp-controller="Home" asp-action="Index">
+                <span class="brand-pill">
+                    <span class="brand-dot @(esAdmin ? "admin" : "")"></span>
+                    NovaDesk
+                </span>
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
+                    aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="mainNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+
+                    <li class="nav-item">
+                        <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">Panel</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" asp-area="" asp-controller="Tickets" asp-action="Index">Tickets</a>
+                    </li>
+
+                    @if (logueado && esAdmin)
+                    {
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#"
+                               role="button"
+                               data-bs-toggle="dropdown"
+                               data-bs-display="static"
+                               aria-expanded="false">
+                                Administración
+                            </a>
+
+                            <ul class="dropdown-menu dropdown-menu-dark border-secondary">
+                                <li>
+                                    <a class="dropdown-item" asp-controller="AdminSla" asp-action="Index">SLA</a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" asp-controller="AdminUsers" asp-action="Index">Usuarios</a>
+
+                                </li>
+
+                                <li>
+                                    <a class="dropdown-item" asp-controller="Tickets" asp-action="DeletedHistory">
+                                        Historial eliminados
+                                    </a>
+                                </li>
+
+                            </ul>
+                        </li>
+                    }
+                </ul>
+
+                <div class="d-flex gap-2 align-items-center">
+                    <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Privacy">
+                        Acerca de
+                    </a>
+
+                    @if (logueado)
+                    {
+                        <div class="dropdown">
+                            <a class="user-pill dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="user-dot @(esAdmin ? "admin" : "")"></span>
+                                <span class="d-none d-md-inline">@displayName</span>
+                                <span class="d-md-none">Cuenta</span>
+                            </a>
+
+                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end border-secondary">
+                                @if (esAdmin)
+                                {
+                                    <li><span class="dropdown-item-text text-warning">Administrador</span></li>
+                                    <li><hr class="dropdown-divider" /></li>
+                                }
+
+                                <li>
+                                    <form method="post" asp-area="" asp-controller="Auth" asp-action="Logout" class="px-2 py-1">
+                                        @Html.AntiForgeryToken()
+                                        <button class="btn btn-outline-light w-100" type="submit">Salir</button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    }
+                    else
+                    {
+                        <a class="btn btn-outline-info" asp-area="" asp-controller="Auth" asp-action="Login">
+                            Iniciar sesión
+                        </a>
+                    }
+                </div>
+
+            </div>
+        </div>
+    </nav>
+</header>
+
+<div class="container py-4">
+    <main role="main">
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert alert-success">@TempData["Success"]</div>
+        }
+        @if (TempData["Error"] != null)
+        {
+            <div class="alert alert-danger">@TempData["Error"]</div>
+        }
+
+        @RenderBody()
+    </main>
+</div>
+
+<footer class="border-top border-secondary text-secondary py-3">
+    <div class="container d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
+        <div>&copy; 2026 - NovaDesk</div>
+        <div class="small text-secondary">
+            Soporte: <span class="text-light">soporte@novadesk.local</span>
+            <span class="mx-2">•</span>
+            Tel: <span class="text-light">+56 9 0000 0000</span>
+        </div>
+    </div>
+</footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

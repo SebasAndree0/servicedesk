@@ -1,0 +1,258 @@
+@{
+    ViewData["Title"] = "Historial de borrados";
+    Layout = "~/Views/Shared/_AdminUsersLayout.cshtml";
+}
+
+<div class="nd-pagehead">
+    <div>
+        <h1 class="nd-title">
+            Historial de borrados <span class="nd-badge">Log</span>
+        </h1>
+        <div class="nd-subtitle">
+            Trazabilidad: quién borró, cuándo y el motivo.
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a class="nd-btn" asp-controller="Tickets" asp-action="Index">← Volver a tickets</a>
+        <button class="nd-btn primary" id="dhRefreshBtn" type="button">Actualizar</button>
+    </div>
+</div>
+
+<div class="nd-glass pad mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-4">
+            <label class="form-label text-secondary small">Page size</label>
+            <select class="form-select" id="dhPageSize">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+
+        <div class="col-12 col-md-4">
+            <div class="text-secondary small">
+                Total borrados: <strong class="text-light" id="dhTotal">0</strong>
+            </div>
+            <div class="text-secondary small d-none" id="dhLoading">Cargando...</div>
+        </div>
+
+        <div class="col-12 col-md-4">
+            <div class="alert alert-danger d-none mb-0" id="dhError"></div>
+        </div>
+    </div>
+</div>
+
+<div class="nd-glass">
+    <div class="p-3 p-md-4">
+        <div class="nd-tablewrap">
+            <div class="table-responsive">
+                <table class="table nd-table table-dark table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Título</th>
+                            <th>Creado por</th>
+                            <th>Asignado</th>
+                            <th>Borrado por</th>
+                            <th>Motivo</th>
+                            <th class="text-nowrap">Borrado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dhBody">
+                        <tr>
+                            <td colspan="6" class="text-secondary text-center py-5">
+                                Sin datos aún.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <nav class="mt-4" aria-label="Paginación" id="dhPager"></nav>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(() => {
+  const body = document.getElementById("dhBody");
+  const pager = document.getElementById("dhPager");
+  const totalEl = document.getElementById("dhTotal");
+  const loadingEl = document.getElementById("dhLoading");
+  const errorEl = document.getElementById("dhError");
+
+  const pageSizeSel = document.getElementById("dhPageSize");
+  const refreshBtn = document.getElementById("dhRefreshBtn");
+
+  let state = { page: 1, pageSize: Number(pageSizeSel?.value || 20) };
+
+  function setLoading(v) {
+    if (!loadingEl) return;
+    loadingEl.classList.toggle("d-none", !v);
+  }
+
+  function setError(msg) {
+    if (!errorEl) return;
+    if (!msg) {
+      errorEl.classList.add("d-none");
+      errorEl.textContent = "";
+      return;
+    }
+    errorEl.classList.remove("d-none");
+    errorEl.textContent = msg;
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? "").replace(/[&<>"']/g, (m) => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[m]));
+  }
+
+  function normalizeIsoToDate(iso) {
+    if (!iso) return null;
+    const s = String(iso);
+    if (s.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(s)) {
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const d = new Date(s + "Z");
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function formatFecha(iso) {
+    const d = normalizeIsoToDate(iso);
+    if (!d) return "-";
+    return d.toLocaleString("es-CL", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit"
+    });
+  }
+
+  function renderRows(items) {
+    if (!items || items.length === 0) {
+      body.innerHTML = `
+        <tr>
+          <td colspan="6" class="text-secondary text-center py-5">
+            No hay tickets borrados.
+          </td>
+        </tr>`;
+      return;
+    }
+
+    body.innerHTML = items.map(x => {
+      const id = x.id;
+      const title = escapeHtml(x.title ?? "(sin título)");
+      const createdBy = escapeHtml(x.createdBy ?? "-");
+      const assignedTo = escapeHtml(x.assignedTo ?? "-");
+      const deletedBy = escapeHtml(x.deletedBy ?? "-");
+      const reason = escapeHtml(x.deleteReason ?? "-");
+      const deletedAt = formatFecha(x.deletedAtUtc);
+
+      return `
+        <tr>
+          <td>
+            <div class="d-flex flex-column">
+              <span class="fw-semibold">${title}</span>
+              <span class="text-secondary small">ID: ${escapeHtml(String(id).substring(0,8))}</span>
+            </div>
+          </td>
+          <td class="text-nowrap">${createdBy}</td>
+          <td class="text-nowrap">${assignedTo}</td>
+          <td class="text-nowrap">${deletedBy}</td>
+          <td style="max-width: 420px;">
+            <span class="text-secondary">${reason}</span>
+          </td>
+          <td class="text-nowrap">${escapeHtml(deletedAt)}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderPager(page, pageSize, total) {
+    const totalPages = Math.max(1, Math.ceil((total || 0) / (pageSize || 20)));
+    const hasPrev = page > 1;
+    const hasNext = page < totalPages;
+
+    pager.innerHTML = `
+      <ul class="pagination justify-content-center gap-2 mb-0">
+        <li class="page-item ${hasPrev ? "" : "disabled"}">
+          <a class="page-link rounded-3" href="#" data-page="${page - 1}">← Anterior</a>
+        </li>
+        <li class="page-item disabled">
+          <span class="page-link rounded-3">Página ${page} de ${totalPages}</span>
+        </li>
+        <li class="page-item ${hasNext ? "" : "disabled"}">
+          <a class="page-link rounded-3" href="#" data-page="${page + 1}">Siguiente →</a>
+        </li>
+      </ul>
+    `;
+
+    pager.querySelectorAll("a[data-page]").forEach(a => {
+      a.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        const next = Number(a.dataset.page);
+        if (!Number.isFinite(next) || next < 1 || next > totalPages) return;
+        state.page = next;
+        load();
+      });
+    });
+  }
+
+  async function load() {
+    setError("");
+    setLoading(true);
+
+    try {
+      const url = `/Tickets/AjaxDeletedHistory?page=${state.page}&pageSize=${state.pageSize}`;
+      const res = await fetch(url, { headers: { "Accept": "application/json" } });
+
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json(); // { page, pageSize, total, items[] }
+
+      const page = data.page ?? 1;
+      const pageSize = data.pageSize ?? state.pageSize;
+      const total = data.total ?? 0;
+      const items = data.items ?? [];
+
+      state.page = page;
+      state.pageSize = pageSize;
+
+      if (totalEl) totalEl.textContent = String(total);
+
+      renderRows(items);
+      renderPager(page, pageSize, total);
+
+    } catch (err) {
+      setError("No pude cargar el historial. " + (err?.message ?? err));
+      renderRows([]);
+      renderPager(1, state.pageSize, 0);
+      if (totalEl) totalEl.textContent = "0";
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // events
+  if (pageSizeSel) {
+    pageSizeSel.addEventListener("change", () => {
+      state.pageSize = Number(pageSizeSel.value || 20);
+      state.page = 1;
+      load();
+    });
+  }
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => load());
+  }
+
+  // init
+  load();
+})();
+</script>
+}

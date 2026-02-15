@@ -1,0 +1,95 @@
+﻿@{
+    ViewData["Title"] = "About";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-0">Documentación</h2>
+        <div class="text-secondary small">Resumen del proyecto, stack y cómo ejecutarlo.</div>
+    </div>
+    <a class="btn btn-outline-secondary" asp-controller="Home" asp-action="Index">Volver</a>
+</div>
+
+<div class="card border-secondary bg-dark text-light">
+    <div class="card-body">
+
+        <h5 class="mb-2">NovaDesk (Service Desk)</h5>
+        <p class="text-secondary mb-4">
+            Aplicación tipo Service Desk para gestionar tickets internos (incidencias, solicitudes y tareas),
+            con interfaz Bootstrap y backend en ASP.NET Core API.
+        </p>
+
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-lg-6">
+                <div class="p-3 rounded border border-secondary bg-black h-100">
+                    <div class="fw-semibold mb-2">✅ Funcionalidades</div>
+                    <ul class="mb-0 text-secondary">
+                        <li>Listado de tickets con filtros (status, prioridad, búsqueda).</li>
+                        <li>Paginación.</li>
+                        <li>Crear ticket (formulario Bootstrap + validación).</li>
+                        <li>Detalle de ticket (badges + metadatos).</li>
+                        <li>Editar ticket.</li>
+                        <li>Acciones: cerrar / reabrir ticket.</li>
+                        <li><strong>JS vanilla + fetch</strong> para filtrar/paginar sin recargar (AjaxList).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+                <div class="p-3 rounded border border-secondary bg-black h-100">
+                    <div class="fw-semibold mb-2">🧱 Stack</div>
+                    <ul class="mb-0 text-secondary">
+                        <li>Frontend: ASP.NET Core MVC + Bootstrap 5</li>
+                        <li>JavaScript: Vanilla JS (fetch + async/await)</li>
+                        <li>Backend: ASP.NET Core Web API</li>
+                        <li>DB: SQL Server en Docker</li>
+                        <li>Control de versiones: Git</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <h5 class="mb-2">▶️ Cómo ejecutar (local)</h5>
+        <div class="p-3 rounded border border-secondary bg-black mb-4">
+            <div class="text-secondary small mb-2">1) Levantar SQL Server (Docker)</div>
+            <pre class="text-light mb-3"><code>"C:\Program Files\Docker\Docker\resources\bin\docker.exe" start servicedesk-sql</code></pre>
+
+            <div class="text-secondary small mb-2">2) Levantar API</div>
+            <pre class="text-light mb-3"><code>cd /d C:\ProyectoASPNET\servicedesk\backend\ServiceDesk.Api
+dotnet run --urls http://localhost:5030</code></pre>
+
+            <div class="text-secondary small mb-2">3) Levantar Web (MVC)</div>
+            <pre class="text-light mb-0"><code>cd /d C:\ProyectoASPNET\servicedesk\web\ServiceDesk.Web
+dotnet run --urls http://localhost:5252</code></pre>
+        </div>
+
+        <h5 class="mb-2">🔌 Endpoints principales</h5>
+        <div class="p-3 rounded border border-secondary bg-black mb-4">
+            <ul class="mb-0 text-secondary">
+                <li><code>GET /api/tickets</code> (paginado + filtros)</li>
+                <li><code>GET /api/tickets/{id}</code> (detalle)</li>
+                <li><code>POST /api/tickets</code> (crear)</li>
+                <li><code>PUT /api/tickets/{id}</code> (editar)</li>
+                <li><code>POST /api/tickets/{id}/close</code> (cerrar)</li>
+                <li><code>POST /api/tickets/{id}/reopen</code> (reabrir)</li>
+            </ul>
+
+            <hr class="border-secondary" />
+
+            <div class="text-secondary small">
+                En la Web MVC se usa <code>IHttpClientFactory</code> y un endpoint interno:
+                <code>GET /Tickets/AjaxList</code> para consumir la API desde <strong>fetch</strong>.
+            </div>
+        </div>
+
+        <h5 class="mb-2">📌 Notas de arquitectura</h5>
+        <div class="p-3 rounded border border-secondary bg-black">
+            <ul class="mb-0 text-secondary">
+                <li>La Web MVC consume la API vía <code>HttpClientFactory</code> (named client <code>"api"</code>).</li>
+                <li>Las vistas usan Bootstrap (responsive + componentes).</li>
+                <li>Se mantiene fallback server-side y se mejora UX con fetch (sin recargar).</li>
+                <li>Se usa AntiForgeryToken en formularios y acciones POST (Close/Reopen/Edit/Create).</li>
+            </ul>
+        </div>
+    </div>
+</div>

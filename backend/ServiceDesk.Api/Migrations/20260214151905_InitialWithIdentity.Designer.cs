@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ServiceDesk.Api.Infrastructure.Db;
 
@@ -11,9 +12,11 @@ using ServiceDesk.Api.Infrastructure.Db;
 namespace ServiceDesk.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260214151905_InitialWithIdentity")]
+    partial class InitialWithIdentity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -287,22 +290,8 @@ namespace ServiceDesk.Api.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
 
-                    b.Property<string>("DeleteReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime?>("DeletedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("DeletedBy")
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<int>("Priority")
                         .HasColumnType("int");
@@ -326,27 +315,15 @@ namespace ServiceDesk.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AssignedTo");
-
                     b.HasIndex("Category");
 
                     b.HasIndex("CreatedAtUtc");
-
-                    b.HasIndex("CreatedBy");
-
-                    b.HasIndex("DeletedAtUtc");
-
-                    b.HasIndex("DeletedBy");
-
-                    b.HasIndex("IsDeleted");
 
                     b.HasIndex("Priority");
 
                     b.HasIndex("Status");
 
                     b.HasIndex("Type");
-
-                    b.HasIndex("UpdatedAtUtc");
 
                     b.ToTable("Tickets");
                 });
@@ -423,57 +400,6 @@ namespace ServiceDesk.Api.Migrations
                     b.ToTable("TicketEvents");
                 });
 
-            modelBuilder.Entity("ServiceDesk.Api.Domain.Entities.TicketEvidence", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Comment")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(260)
-                        .HasColumnType("nvarchar(260)");
-
-                    b.Property<long>("SizeBytes")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("int");
-
-                    b.Property<string>("StoragePath")
-                        .IsRequired()
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
-
-                    b.Property<Guid>("TicketId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("UploadedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UploadedBy")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TicketId");
-
-                    b.HasIndex("UploadedAtUtc");
-
-                    b.ToTable("TicketEvidences");
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", null)
@@ -540,17 +466,6 @@ namespace ServiceDesk.Api.Migrations
                 {
                     b.HasOne("ServiceDesk.Api.Domain.Entities.Ticket", "Ticket")
                         .WithMany("Events")
-                        .HasForeignKey("TicketId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Ticket");
-                });
-
-            modelBuilder.Entity("ServiceDesk.Api.Domain.Entities.TicketEvidence", b =>
-                {
-                    b.HasOne("ServiceDesk.Api.Domain.Entities.Ticket", "Ticket")
-                        .WithMany()
                         .HasForeignKey("TicketId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

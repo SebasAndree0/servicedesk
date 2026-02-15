@@ -1,0 +1,914 @@
+@model ServiceDesk.Web.Models.Tickets.PagedTicketsResponse
+@using ServiceDesk.Web.Models.Tickets
+@using Microsoft.AspNetCore.Http
+
+@{
+    ViewData["Title"] = "Tickets";
+
+    string? selectedStatus   = (ViewBag.Status as string)?.Trim();
+    string? selectedPriority = (ViewBag.Priority as string)?.Trim();
+    string? selectedCategory = (ViewBag.Category as string)?.Trim();
+    string? selectedType     = (ViewBag.Type as string)?.Trim();
+
+    selectedStatus   = string.IsNullOrWhiteSpace(selectedStatus) ? null : selectedStatus;
+    selectedPriority = string.IsNullOrWhiteSpace(selectedPriority) ? null : selectedPriority;
+    selectedCategory = string.IsNullOrWhiteSpace(selectedCategory) ? null : selectedCategory;
+    selectedType     = string.IsNullOrWhiteSpace(selectedType) ? null : selectedType;
+
+    var search = ((string?)ViewBag.Search ?? "").Trim();
+
+    // Advanced
+    var createdFrom = ((string?)ViewBag.CreatedFrom ?? "").Trim();
+    var createdTo   = ((string?)ViewBag.CreatedTo ?? "").Trim();
+    var updatedFrom = ((string?)ViewBag.UpdatedFrom ?? "").Trim();
+    var updatedTo   = ((string?)ViewBag.UpdatedTo ?? "").Trim();
+
+    var createdBy  = ((string?)ViewBag.CreatedBy ?? "").Trim();
+    var assignedTo = ((string?)ViewBag.AssignedTo ?? "").Trim();
+
+    var sortBy  = ((string?)ViewBag.SortBy ?? "createdAt").Trim();
+    var sortDir = ((string?)ViewBag.SortDir ?? "desc").Trim().ToLower();
+
+    var pageSize = Model?.PageSize ?? 20;
+
+    // ✅ IMPORTANTÍSIMO: default sort NO cuenta como “filtro activo”
+    bool isDefaultSort = string.Equals(sortBy, "createdAt", StringComparison.OrdinalIgnoreCase)
+                      && string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase);
+
+    bool isDefaultPageSize = (pageSize == 20);
+
+    // ✅ Advanced activo SOLO si hay valores reales (o sort distinto al default / pageSize distinto a 20)
+    bool hasAdvancedActive =
+        !string.IsNullOrWhiteSpace(selectedCategory) ||
+        !string.IsNullOrWhiteSpace(selectedType) ||
+        !string.IsNullOrWhiteSpace(createdFrom) ||
+        !string.IsNullOrWhiteSpace(createdTo) ||
+        !string.IsNullOrWhiteSpace(updatedFrom) ||
+        !string.IsNullOrWhiteSpace(updatedTo) ||
+        !string.IsNullOrWhiteSpace(createdBy) ||
+        !string.IsNullOrWhiteSpace(assignedTo) ||
+        !isDefaultSort ||
+        !isDefaultPageSize;
+
+    // ✅ “Filtros activos” solo si realmente cambió algo (incluye top + advanced reales)
+    bool hasAnyFilter =
+        !string.IsNullOrWhiteSpace(selectedStatus) ||
+        !string.IsNullOrWhiteSpace(selectedPriority) ||
+        !string.IsNullOrWhiteSpace(search) ||
+        hasAdvancedActive;
+
+    // Labels (top)
+    string StatusLabel(string? v) => v switch
+    {
+        "Open" => "Abierto",
+        "InProgress" => "En progreso",
+        "Closed" => "Cerrado",
+        _ => "Todos"
+    };
+
+    string PriorityLabel(string? v) => v switch
+    {
+        "P1" => "P1",
+        "P2" => "P2",
+        "P3" => "P3",
+        _ => "Todas"
+    };
+
+    // Labels (advanced)
+    string CategoryLabel(string? v) => string.IsNullOrWhiteSpace(v) ? "Todas" : v!;
+    string TypeLabel(string? v) => string.IsNullOrWhiteSpace(v) ? "Todos" : v!;
+
+    string SortByLabel(string? v) => (v ?? "createdAt") switch
+    {
+        "updatedAt" => "Actualización",
+        "updated" => "Actualización",
+        "title" => "Título",
+        "status" => "Estado",
+        "priority" => "Prioridad",
+        "createdBy" => "Creado por",
+        "assignedTo" => "Asignado",
+        _ => "Creación"
+    };
+
+    string SortDirLabel(string? v) => (v ?? "desc").ToLower() switch
+    {
+        "asc" => "Asc",
+        _ => "Desc"
+    };
+
+    string PageSizeLabel(int v) => v.ToString();
+}
+
+@section Styles {
+<style>
+    /* ===== Mismo look del _AdminUsersLayout ===== */
+
+    .nd-pagehead{
+        display:flex; justify-content:space-between; align-items:flex-start;
+        gap:16px; margin-bottom: 14px;
+    }
+
+    /* ✅ “Tickets” más pro */
+    .nd-title{
+        font-size: 44px;
+        font-weight: 950;
+        letter-spacing: .2px;
+        margin: 0;
+        line-height: 1.05;
+        color: rgba(255,255,255,.94);
+        text-shadow: 0 18px 55px rgba(0,0,0,.65);
+    }
+    .nd-title .glow{
+        background: linear-gradient(90deg, rgba(255,193,7,.95), rgba(13,110,253,.95));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        filter: drop-shadow(0 10px 26px rgba(255,193,7,.10));
+    }
+
+    .nd-subtitle{
+        margin-top: 6px;
+        color: rgba(255,255,255,.62);
+        font-size: 15px;
+    }
+    .nd-badge{
+        display:inline-flex; align-items:center;
+        height: 26px; padding: 0 10px; border-radius: 999px;
+        font-size: 13px; font-weight: 850;
+        border: 1px solid rgba(255,193,7,.35);
+        background: rgba(255,193,7,.12);
+        color: rgba(255,193,7,.95);
+        margin-left: 10px;
+        transform: translateY(-3px);
+    }
+
+    /* cards */
+    .admin-card-like{
+        background: linear-gradient(180deg, rgba(20,22,28,.78), rgba(14,16,20,.70)) !important;
+        border: 1px solid rgba(255,255,255,.10) !important;
+        border-radius: 18px !important;
+        box-shadow: 0 18px 60px rgba(0,0,0,.45);
+    }
+
+    /* botones (nd-btn) */
+    .nd-btn{
+        display:inline-flex; align-items:center; justify-content:center; gap:.55rem;
+        padding: 10px 14px;
+        border-radius: 999px;
+        font-weight: 900;
+        letter-spacing: .2px;
+        border: 1px solid rgba(255,255,255,.14);
+        background: rgba(255,255,255,.06);
+        color: rgba(255,255,255,.92);
+        text-decoration:none;
+        transition: 140ms ease;
+        min-height: 44px;
+        cursor:pointer;
+        user-select:none;
+    }
+    .nd-btn:hover{
+        transform: translateY(-1px);
+        background: rgba(255,255,255,.10);
+        border-color: rgba(255,255,255,.22);
+        color: #fff;
+    }
+    .nd-btn.primary{
+        background: linear-gradient(180deg, rgba(255,193,7,.95), rgba(255,193,7,.72));
+        border-color: rgba(255,193,7,.55);
+        box-shadow: 0 14px 36px rgba(255,193,7,.14);
+        color: #111;
+    }
+    .nd-btn.primary:hover{
+        box-shadow: 0 18px 46px rgba(255,193,7,.20);
+        color: #111;
+    }
+    .nd-btn.soft{ background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); }
+    .nd-btn.danger{
+        background: rgba(220,53,69,.10);
+        border-color: rgba(220,53,69,.45);
+        color: rgba(255,255,255,.95);
+    }
+    .nd-btn.danger:hover{ background: rgba(220,53,69,.18); border-color: rgba(220,53,69,.65); }
+    .nd-btn.sm{ padding: 8px 12px; min-height: 40px; font-weight: 900; }
+
+    /* Icono filtro “Excel-like” */
+    .ico-filter{
+        width: 18px; height: 18px; display:inline-block; position:relative; opacity:.95;
+    }
+    .ico-filter:before{
+        content:"";
+        position:absolute; inset:0;
+        background:
+          linear-gradient(#fff,#fff) 3px 3px/12px 2px no-repeat,
+          linear-gradient(#fff,#fff) 3px 8px/9px 2px no-repeat,
+          linear-gradient(#fff,#fff) 3px 13px/6px 2px no-repeat;
+        opacity:.9;
+    }
+
+    .muted { color: rgba(255,255,255,.60); }
+
+    /* forms dark */
+    .form-control, .form-select{
+        background-color: rgba(255,255,255,.06) !important;
+        border: 1px solid rgba(255,255,255,.14) !important;
+        color: rgba(255,255,255,.92) !important;
+        min-height: 44px;
+        border-radius: 14px !important;
+    }
+    .form-control::placeholder{ color: rgba(255,255,255,.40) !important; }
+    .form-control:focus, .form-select:focus{
+        background-color: rgba(255,255,255,.08) !important;
+        border-color: rgba(255,193,7,.55) !important;
+        box-shadow: 0 0 0 .2rem rgba(255,193,7,.12) !important;
+    }
+
+    /* dropdown PRO oscuro */
+    .dd-btn{
+        width: 100%;
+        display:flex; justify-content:space-between; align-items:center;
+        background-color: rgba(255,255,255,.06) !important;
+        border: 1px solid rgba(255,255,255,.14) !important;
+        color: rgba(255,255,255,.92) !important;
+        border-radius: 14px !important;
+        padding: .55rem .75rem;
+        min-height: 44px;
+    }
+    .dd-menu{
+        width: 100%;
+        border-radius: 14px;
+        padding: .35rem;
+        border: 1px solid rgba(255,255,255,.12) !important;
+        background: rgba(20, 22, 28, .98) !important;
+        box-shadow: 0 18px 45px rgba(0,0,0,.45);
+    }
+    .dd-item{
+        border-radius: 10px;
+        padding: .55rem .75rem;
+        color: rgba(255,255,255,.90);
+        cursor: pointer;
+    }
+    .dd-item:hover{ background: rgba(255,255,255,.08); }
+    .dd-item.muted{ color: rgba(255,255,255,.70); }
+
+    .filter-actions{
+        display:flex;
+        gap:10px;
+        justify-content:flex-end;
+        align-items:end;
+        flex-wrap:wrap;
+    }
+
+    /* chips */
+    .filter-chip{
+        display:inline-flex; align-items:center; gap:.35rem;
+        padding:.28rem .60rem;
+        border-radius:999px;
+        border:1px solid rgba(255,255,255,.12);
+        background: rgba(255,255,255,.06);
+        color: rgba(255,255,255,.72);
+        font-size:.82rem;
+        margin-right:.4rem;
+        margin-top:.35rem;
+        white-space:nowrap;
+    }
+
+    /* ===== TABLA (como AdminUsers) ===== */
+    .nd-tablewrap{
+        overflow:hidden;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.10);
+    }
+    .table.nd-table{
+        margin:0;
+        color: rgba(255,255,255,.92);
+    }
+    .table.nd-table thead th{
+        background: rgba(255,255,255,.06) !important;   /* ✅ el “rectángulo” que marcaste */
+        border-bottom: 1px solid rgba(255,255,255,.10) !important;
+        color: rgba(255,255,255,.92) !important;
+        font-weight: 900;
+        padding-top: 14px;
+        padding-bottom: 14px;
+        white-space:nowrap;
+    }
+    .table.nd-table td, .table.nd-table th{
+        border-color: rgba(255,255,255,.10) !important;
+        vertical-align: middle;
+        padding-top: 14px;
+        padding-bottom: 14px;
+    }
+    .table.nd-table tbody tr:hover{
+        background: rgba(255,255,255,.03);
+    }
+
+    /* clickable sort */
+    .th-sort{
+        cursor:pointer; user-select:none;
+        display:inline-flex; align-items:center; gap:.35rem;
+        text-decoration:none;
+        color: rgba(255,255,255,.92);
+    }
+    .th-sort:hover{ color: rgba(255,255,255,.98); }
+    .sort-ind{ opacity:.85; font-size:.85em; }
+
+    /* priority + status pills */
+    .prio-pill, .st-pill{
+        display:inline-flex; align-items:center;
+        height: 28px; padding: 0 10px; border-radius: 999px;
+        font-weight: 900; border: 1px solid rgba(255,255,255,.12);
+    }
+    .prio-pill.p1{ background: rgba(220,53,69,.14); border-color: rgba(220,53,69,.45); color:#fff; }
+    .prio-pill.p2{ background: rgba(255,193,7,.22); border-color: rgba(255,193,7,.55); color:#111; }
+    .prio-pill.p3{ background: rgba(13,110,253,.16); border-color: rgba(13,110,253,.45); color:#fff; }
+
+    .st-pill.open{ background: rgba(255,193,7,.18); border-color: rgba(255,193,7,.55); color:#111; }
+    .st-pill.progress{ background: rgba(13,110,253,.16); border-color: rgba(13,110,253,.45); color:#fff; }
+    .st-pill.closed{ background: rgba(25,135,84,.16); border-color: rgba(25,135,84,.45); color:#fff; }
+
+    /* pagination */
+    .page-link{
+        background: rgba(255,255,255,.06) !important;
+        border-color: rgba(255,255,255,.12) !important;
+        color: #fff !important;
+        border-radius: 14px !important;
+    }
+    .page-item.disabled .page-link{
+        color: rgba(255,255,255,.45) !important;
+        background: rgba(255,255,255,.03) !important;
+    }
+
+
+
+    /* ===== Header estilo Dashboard (cuadrado) ===== */
+    .panel-hero{
+        background: rgba(20, 24, 33, .72);
+        border: 1px solid rgba(255,255,255,.10);
+        box-shadow: 0 16px 50px rgba(0,0,0,.35);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 18px 18px;
+    }
+
+    .title-dot{
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(13,110,253,.95);
+        box-shadow: 0 0 0 6px rgba(13,110,253,.14);
+    }
+
+    .btn-soft{
+        background: rgba(255,255,255,.06);
+        border: 1px solid rgba(255,255,255,.12);
+        color: #fff;
+        border-radius: 999px;
+        font-weight: 900;
+    }
+    .btn-soft:hover{
+        background: rgba(255,255,255,.10);
+        border-color: rgba(255,255,255,.18);
+        color: #fff;
+    }
+
+    .badge-hero{
+        border: 1px solid rgba(255,193,7,.35);
+        background: rgba(255,193,7,.12);
+        color: #ffdd7a;
+    }
+
+
+
+
+
+
+
+
+</style>
+}
+
+
+
+<div class="panel-hero mb-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="title-dot"></span>
+                <h2 class="mb-0">Tickets</h2>
+                <span class="badge badge-hero">Gestión interna</span>
+            </div>
+            <div class="muted small mt-1">Gestiona solicitudes, incidencias y tareas internas.</div>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-primary" asp-action="Create">Nuevo ticket</a>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+
+
+
+
+@if (ViewBag.Error != null)
+{
+    <div class="alert alert-danger">@ViewBag.Error</div>
+}
+@Html.AntiForgeryToken()
+
+<form method="get" class="admin-card-like mb-3" data-tickets-filter="1" id="ticketsFilterForm">
+    <div class="p-3 p-md-4">
+
+        <!-- TOP: solo Estado/Prioridad/Buscar + botones -->
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-2">
+                <label class="form-label muted small">Estado</label>
+                <input type="hidden" name="status" id="statusSelect" value="@(selectedStatus ?? "")" />
+
+                <div class="dropdown w-100">
+                    <button class="dd-btn dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <span id="statusLabel">@StatusLabel(selectedStatus)</span>
+                    </button>
+                    <ul class="dropdown-menu dd-menu">
+                        <li><div class="dd-item muted" data-target="statusSelect" data-label="statusLabel" data-value="">Todos</div></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><div class="dd-item" data-target="statusSelect" data-label="statusLabel" data-value="Open">Abierto</div></li>
+                        <li><div class="dd-item" data-target="statusSelect" data-label="statusLabel" data-value="InProgress">En progreso</div></li>
+                        <li><div class="dd-item" data-target="statusSelect" data-label="statusLabel" data-value="Closed">Cerrado</div></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-2">
+                <label class="form-label muted small">Prioridad</label>
+                <input type="hidden" name="priority" id="prioritySelect" value="@(selectedPriority ?? "")" />
+
+                <div class="dropdown w-100">
+                    <button class="dd-btn dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <span id="priorityLabel">@PriorityLabel(selectedPriority)</span>
+                    </button>
+                    <ul class="dropdown-menu dd-menu">
+                        <li><div class="dd-item muted" data-target="prioritySelect" data-label="priorityLabel" data-value="">Todas</div></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><div class="dd-item" data-target="prioritySelect" data-label="priorityLabel" data-value="P1">P1</div></li>
+                        <li><div class="dd-item" data-target="prioritySelect" data-label="priorityLabel" data-value="P2">P2</div></li>
+                        <li><div class="dd-item" data-target="prioritySelect" data-label="priorityLabel" data-value="P3">P3</div></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-5">
+                <label class="form-label muted small">Buscar</label>
+                <input class="form-control"
+                       type="text"
+                       name="search"
+                       id="searchInput"
+                       value="@search"
+                       placeholder="Título o descripción..." />
+            </div>
+
+            <div class="col-12 col-md-3">
+                <div class="filter-actions">
+                    <!-- ✅ Filtros: abre/cierra (NO submit) -->
+                    <button class="nd-btn soft" type="button" id="filtersToggleBtn" title="Filtros">
+                        <span class="ico-filter"></span>
+                        Filtros
+                    </button>
+
+                    <!-- ✅ Limpiar: vuelve limpio -->
+                    <button class="nd-btn soft" type="button" id="clearBtn">Limpiar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ✅ ADVANCED: NO aparece hasta apretar Filtros (salvo que venga con filtros avanzados reales) -->
+        <div class="collapse mt-3 @(hasAdvancedActive ? "show" : "")" id="advancedFilters">
+            <hr style="border-color: rgba(255,255,255,.10);" />
+
+            <div class="row g-2">
+                <div class="col-12 col-md-2">
+                    <label class="form-label muted small">Categoría</label>
+                    <input type="hidden" name="category" id="categorySelect" value="@(selectedCategory ?? "")" />
+
+                    <div class="dropdown w-100">
+                        <button class="dd-btn dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <span id="categoryLabel">@CategoryLabel(selectedCategory)</span>
+                        </button>
+                        <ul class="dropdown-menu dd-menu">
+                            <li><div class="dd-item muted" data-target="categorySelect" data-label="categoryLabel" data-value="">Todas</div></li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li><div class="dd-item" data-target="categorySelect" data-label="categoryLabel" data-value="Software">Software</div></li>
+                            <li><div class="dd-item" data-target="categorySelect" data-label="categoryLabel" data-value="Hardware">Hardware</div></li>
+                            <li><div class="dd-item" data-target="categorySelect" data-label="categoryLabel" data-value="Redes">Redes</div></li>
+                            <li><div class="dd-item" data-target="categorySelect" data-label="categoryLabel" data-value="Accesos">Accesos</div></li>
+                            <li><div class="dd-item" data-target="categorySelect" data-label="categoryLabel" data-value="Otros">Otros</div></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <label class="form-label muted small">Tipo</label>
+                    <input type="hidden" name="type" id="typeSelect" value="@(selectedType ?? "")" />
+
+                    <div class="dropdown w-100">
+                        <button class="dd-btn dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <span id="typeLabel">@TypeLabel(selectedType)</span>
+                        </button>
+                        <ul class="dropdown-menu dd-menu">
+                            <li><div class="dd-item muted" data-target="typeSelect" data-label="typeLabel" data-value="">Todos</div></li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li><div class="dd-item" data-target="typeSelect" data-label="typeLabel" data-value="Incidencia">Incidencia</div></li>
+                            <li><div class="dd-item" data-target="typeSelect" data-label="typeLabel" data-value="Solicitud">Solicitud</div></li>
+                            <li><div class="dd-item" data-target="typeSelect" data-label="typeLabel" data-value="Tarea">Tarea</div></li>
+                            <li><div class="dd-item" data-target="typeSelect" data-label="typeLabel" data-value="Mejora">Mejora</div></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-6 col-md-2">
+                    <label class="form-label muted small">Creado desde</label>
+                    <input class="form-control" type="date" name="createdFrom" id="createdFrom" value="@createdFrom" />
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label muted small">Creado hasta</label>
+                    <input class="form-control" type="date" name="createdTo" id="createdTo" value="@createdTo" />
+                </div>
+
+                <div class="col-6 col-md-2">
+                    <label class="form-label muted small">Actualizado desde</label>
+                    <input class="form-control" type="date" name="updatedFrom" id="updatedFrom" value="@updatedFrom" />
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label muted small">Actualizado hasta</label>
+                    <input class="form-control" type="date" name="updatedTo" id="updatedTo" value="@updatedTo" />
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label muted small">Creado por</label>
+                    <input class="form-control" type="text" name="createdBy" id="createdByInput" value="@createdBy" placeholder="usuario / nombre..." />
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label muted small">Asignado a</label>
+                    <input class="form-control" type="text" name="assignedTo" id="assignedToInput" value="@assignedTo" placeholder="usuario / equipo..." />
+                </div>
+
+                <div class="col-6 col-md-3">
+                    <label class="form-label muted small">Ordenar por</label>
+                    <input type="hidden" name="sortBy" id="sortBySelect" value="@sortBy" />
+                    <div class="dropdown w-100">
+                        <button class="dd-btn dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <span id="sortByLabel">@SortByLabel(sortBy)</span>
+                        </button>
+                        <ul class="dropdown-menu dd-menu">
+                            <li><div class="dd-item" data-target="sortBySelect" data-label="sortByLabel" data-value="createdAt">Creación</div></li>
+                            <li><div class="dd-item" data-target="sortBySelect" data-label="sortByLabel" data-value="updatedAt">Actualización</div></li>
+                            <li><div class="dd-item" data-target="sortBySelect" data-label="sortByLabel" data-value="title">Título</div></li>
+                            <li><div class="dd-item" data-target="sortBySelect" data-label="sortByLabel" data-value="status">Estado</div></li>
+                            <li><div class="dd-item" data-target="sortBySelect" data-label="sortByLabel" data-value="priority">Prioridad</div></li>
+                            <li><div class="dd-item" data-target="sortBySelect" data-label="sortByLabel" data-value="createdBy">Creado por</div></li>
+                            <li><div class="dd-item" data-target="sortBySelect" data-label="sortByLabel" data-value="assignedTo">Asignado</div></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-6 col-md-3">
+                    <label class="form-label muted small">Dirección</label>
+                    <input type="hidden" name="sortDir" id="sortDirSelect" value="@sortDir" />
+                    <div class="dropdown w-100">
+                        <button class="dd-btn dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <span id="sortDirLabel">@SortDirLabel(sortDir)</span>
+                        </button>
+                        <ul class="dropdown-menu dd-menu">
+                            <li><div class="dd-item" data-target="sortDirSelect" data-label="sortDirLabel" data-value="desc">Desc</div></li>
+                            <li><div class="dd-item" data-target="sortDirSelect" data-label="sortDirLabel" data-value="asc">Asc</div></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label muted small">Tamaño página</label>
+                    <input type="hidden" name="pageSize" id="pageSizeSelect" value="@pageSize" />
+                    <div class="dropdown w-100">
+                        <button class="dd-btn dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <span id="pageSizeLabel">@PageSizeLabel(pageSize)</span>
+                        </button>
+                        <ul class="dropdown-menu dd-menu">
+                            <li><div class="dd-item" data-target="pageSizeSelect" data-label="pageSizeLabel" data-value="10">10</div></li>
+                            <li><div class="dd-item" data-target="pageSizeSelect" data-label="pageSizeLabel" data-value="20">20</div></li>
+                            <li><div class="dd-item" data-target="pageSizeSelect" data-label="pageSizeLabel" data-value="50">50</div></li>
+                            <li><div class="dd-item" data-target="pageSizeSelect" data-label="pageSizeLabel" data-value="100">100</div></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <input type="hidden" name="page" id="pageInput" value="@(Model?.Page ?? 1)" />
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                <div class="muted">
+                    Total: <strong class="text-light" data-tickets-total="1">@Model.Total</strong>
+                    @if (hasAnyFilter)
+                    {
+                        <span class="filter-chip" style="margin-left:.5rem;">Filtros activos</span>
+                    }
+                </div>
+
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="nd-btn primary" type="submit" id="applyFiltersBtn">Aplicar</button>
+                    <button class="nd-btn soft" type="button" id="closeFiltersBtn">Cerrar</button>
+                </div>
+            </div>
+
+            @if (hasAnyFilter)
+            {
+                <div class="mt-2">
+                    @if (!string.IsNullOrWhiteSpace(selectedStatus))   { <span class="filter-chip">Estado: @selectedStatus</span> }
+                    @if (!string.IsNullOrWhiteSpace(selectedPriority)) { <span class="filter-chip">Prioridad: @selectedPriority</span> }
+                    @if (!string.IsNullOrWhiteSpace(search))           { <span class="filter-chip">Buscar: @search</span> }
+
+                    @if (!string.IsNullOrWhiteSpace(selectedCategory)) { <span class="filter-chip">Categoría: @selectedCategory</span> }
+                    @if (!string.IsNullOrWhiteSpace(selectedType))     { <span class="filter-chip">Tipo: @selectedType</span> }
+
+                    @if (!string.IsNullOrWhiteSpace(createdFrom) || !string.IsNullOrWhiteSpace(createdTo))
+                    { <span class="filter-chip">Creación: @(string.IsNullOrWhiteSpace(createdFrom) ? "…" : createdFrom) → @(string.IsNullOrWhiteSpace(createdTo) ? "…" : createdTo)</span> }
+
+                    @if (!string.IsNullOrWhiteSpace(updatedFrom) || !string.IsNullOrWhiteSpace(updatedTo))
+                    { <span class="filter-chip">Actualización: @(string.IsNullOrWhiteSpace(updatedFrom) ? "…" : updatedFrom) → @(string.IsNullOrWhiteSpace(updatedTo) ? "…" : updatedTo)</span> }
+
+                    @if (!string.IsNullOrWhiteSpace(createdBy))        { <span class="filter-chip">Creado por: @createdBy</span> }
+                    @if (!string.IsNullOrWhiteSpace(assignedTo))       { <span class="filter-chip">Asignado: @assignedTo</span> }
+
+                    @if (!isDefaultSort)        { <span class="filter-chip">Sort: @sortBy @sortDir</span> }
+                    @if (!isDefaultPageSize)    { <span class="filter-chip">PageSize: @pageSize</span> }
+                </div>
+            }
+        </div>
+    </div>
+</form>
+
+<div class="alert alert-danger d-none" data-tickets-alert="1"></div>
+<div class="muted small mb-2 d-none" data-tickets-loading="1">Cargando...</div>
+
+<div class="admin-card-like">
+    <div class="p-3 p-md-4">
+        <div class="nd-tablewrap">
+            <div class="table-responsive">
+                <table class="table nd-table table-dark table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th><a href="#" class="th-sort" data-sort-by="title">Título <span class="sort-ind" data-sort-ind="title"></span></a></th>
+                            <th><a href="#" class="th-sort" data-sort-by="status">Estado <span class="sort-ind" data-sort-ind="status"></span></a></th>
+                            <th><a href="#" class="th-sort" data-sort-by="priority">Prioridad <span class="sort-ind" data-sort-ind="priority"></span></a></th>
+                            <th><a href="#" class="th-sort" data-sort-by="createdBy">Creado por <span class="sort-ind" data-sort-ind="createdBy"></span></a></th>
+                            <th><a href="#" class="th-sort" data-sort-by="assignedTo">Asignado <span class="sort-ind" data-sort-ind="assignedTo"></span></a></th>
+                            <th class="text-nowrap"><a href="#" class="th-sort" data-sort-by="updatedAt">Actualizado <span class="sort-ind" data-sort-ind="updatedAt"></span></a></th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+
+                    <tbody data-tickets-body="1">
+                    @if (Model?.Items == null || Model.Items.Count == 0)
+                    {
+                        <tr><td colspan="7" class="muted text-center py-5">No hay tickets con esos filtros.</td></tr>
+                    }
+                    else
+                    {
+                        foreach (var t in Model.Items)
+                        {
+                            var statusText = (t.Status?.Trim() ?? "Open");
+                            var statusLabel = statusText switch
+                            {
+                                "Closed" => "Cerrado",
+                                "InProgress" => "En progreso",
+                                _ => "Abierto"
+                            };
+                            var stCss = statusText switch
+                            {
+                                "Closed" => "st-pill closed",
+                                "InProgress" => "st-pill progress",
+                                _ => "st-pill open"
+                            };
+
+                            var prioText = (t.Priority?.Trim() ?? "P3");
+                            var prioCss = prioText switch
+                            {
+                                "P1" => "prio-pill p1",
+                                "P2" => "prio-pill p2",
+                                _ => "prio-pill p3"
+                            };
+
+                            var isClosed = (statusText == "Closed");
+
+                            var updatedLabel = (t.UpdatedAtUtc == DateTime.MinValue)
+                                ? "-"
+                                : t.UpdatedAtUtc.ToLocalTime().ToString("dd-MM-yyyy HH:mm");
+
+                            <tr data-ticket-id="@t.Id">
+                                <td>
+                                    <div class="d-flex flex-column">
+                                        <a asp-action="Details" asp-route-id="@t.Id" class="text-decoration-none fw-semibold">
+                                            @t.Title
+                                        </a>
+                                        <span class="muted small">ID: @t.Id.ToString().Substring(0, 8)</span>
+                                    </div>
+                                </td>
+
+                                <td><span class="@stCss">@statusLabel</span></td>
+                                <td><span class="@prioCss">@prioText</span></td>
+
+                                <td class="text-nowrap">@t.CreatedBy</td>
+                                <td class="text-nowrap">@(t.AssignedTo ?? "-")</td>
+                                <td class="text-nowrap">@updatedLabel</td>
+
+                                <td class="text-end text-nowrap">
+                                    <div class="d-inline-flex gap-2 flex-wrap justify-content-end">
+                                        <a class="nd-btn sm soft" asp-action="Details" asp-route-id="@t.Id">Ver</a>
+                                        <a class="nd-btn sm soft" asp-action="Edit" asp-route-id="@t.Id">Editar</a>
+
+                                        <button type="button"
+                                                class="nd-btn sm danger"
+                                                data-ticket-delete="1"
+                                                data-ticket-id="@t.Id"
+                                                data-ticket-title="@t.Title">
+                                            Borrar
+                                        </button>
+
+                                        @if (!isClosed)
+                                        {
+                                            <form asp-controller="Tickets" asp-action="Close" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@t.Id" />
+                                                <button type="submit" class="nd-btn sm soft">Cerrar</button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <form asp-controller="Tickets" asp-action="Reopen" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@t.Id" />
+                                                <button type="submit" class="nd-btn sm soft">Reabrir</button>
+                                            </form>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@{
+    var totalPages = (int)Math.Ceiling((double)(Model?.Total ?? 0) / (Model?.PageSize ?? 20));
+    if (totalPages < 1) { totalPages = 1; }
+    var currentPage = Model?.Page ?? 1;
+    var hasPrev = currentPage > 1;
+    var hasNext = currentPage < totalPages;
+}
+
+<nav class="mt-4" data-tickets-pager="1" aria-label="Paginación tickets">
+    <ul class="pagination justify-content-center gap-2">
+        <li class="page-item @(hasPrev ? "" : "disabled")">
+            <a class="page-link"
+               asp-action="Index"
+               asp-route-page="@(currentPage - 1)"
+               asp-route-pageSize="@(Model?.PageSize ?? 20)"
+               asp-route-status="@(selectedStatus)"
+               asp-route-priority="@(selectedPriority)"
+               asp-route-category="@(selectedCategory)"
+               asp-route-type="@(selectedType)"
+               asp-route-search="@(search)"
+               asp-route-createdFrom="@(createdFrom)"
+               asp-route-createdTo="@(createdTo)"
+               asp-route-updatedFrom="@(updatedFrom)"
+               asp-route-updatedTo="@(updatedTo)"
+               asp-route-createdBy="@(createdBy)"
+               asp-route-assignedTo="@(assignedTo)"
+               asp-route-sortBy="@(sortBy)"
+               asp-route-sortDir="@(sortDir)">
+                ← Anterior
+            </a>
+        </li>
+
+        <li class="page-item disabled">
+            <span class="page-link">Página @currentPage de @totalPages</span>
+        </li>
+
+        <li class="page-item @(hasNext ? "" : "disabled")">
+            <a class="page-link"
+               asp-action="Index"
+               asp-route-page="@(currentPage + 1)"
+               asp-route-pageSize="@(Model?.PageSize ?? 20)"
+               asp-route-status="@(selectedStatus)"
+               asp-route-priority="@(selectedPriority)"
+               asp-route-category="@(selectedCategory)"
+               asp-route-type="@(selectedType)"
+               asp-route-search="@(search)"
+               asp-route-createdFrom="@(createdFrom)"
+               asp-route-createdTo="@(createdTo)"
+               asp-route-updatedFrom="@(updatedFrom)"
+               asp-route-updatedTo="@(updatedTo)"
+               asp-route-createdBy="@(createdBy)"
+               asp-route-assignedTo="@(assignedTo)"
+               asp-route-sortBy="@(sortBy)"
+               asp-route-sortDir="@(sortDir)">
+                Siguiente →
+            </a>
+        </li>
+    </ul>
+</nav>
+
+<!-- Modal borrar (igual) -->
+<div class="modal fade" id="deleteTicketModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background: rgba(20,22,28,.96); border: 1px solid rgba(255,255,255,.10); border-radius: 16px;">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">Borrar ticket</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="muted small mb-2">
+                    Estás por borrar: <strong class="text-light" data-delete-title="1">—</strong>
+                </div>
+
+                <input type="hidden" id="deleteTicketId" />
+
+                <label class="form-label muted small">Motivo (obligatorio)</label>
+                <textarea class="form-control" id="deleteReasonInput" rows="3" placeholder="Ej: Duplicado, creado por error, resuelto fuera del sistema..."></textarea>
+
+                <div class="muted small mt-2">
+                    Esto quedará registrado en el historial (trazabilidad).
+                </div>
+
+                <div class="alert alert-danger d-none mt-3" id="deleteTicketError"></div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="nd-btn soft" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="nd-btn danger" id="confirmDeleteTicketBtn">Borrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ FORM OCULTO para Close/Reopen desde tickets.js -->
+<form id="ticket-action-form" method="post" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+
+@section Scripts {
+    <script>
+        // ✅ dropdown PRO -> hidden input + label
+        (function () {
+            document.querySelectorAll(".dd-item[data-target]").forEach(el => {
+                el.addEventListener("click", () => {
+                    const targetId = el.getAttribute("data-target");
+                    const labelId  = el.getAttribute("data-label");
+                    const value    = el.getAttribute("data-value") ?? "";
+                    const text     = (el.textContent ?? "").trim();
+
+                    const input = document.getElementById(targetId);
+                    const label = document.getElementById(labelId);
+
+                    if (input) input.value = value;
+                    if (label) label.textContent = text;
+                });
+            });
+        })();
+
+        // ✅ Excel-style: panel NO se abre solo (salvo que venga con filtros avanzados reales)
+        (function () {
+            const toggleBtn = document.getElementById("filtersToggleBtn");
+            const closeBtn  = document.getElementById("closeFiltersBtn");
+            const clearBtn  = document.getElementById("clearBtn");
+            const advEl     = document.getElementById("advancedFilters");
+
+            if (!toggleBtn || !advEl || !clearBtn) return;
+
+            const collapse = bootstrap.Collapse.getOrCreateInstance(advEl, { toggle: false });
+
+            toggleBtn.addEventListener("click", () => {
+                advEl.classList.contains("show") ? collapse.hide() : collapse.show();
+            });
+
+            if (closeBtn) closeBtn.addEventListener("click", () => collapse.hide());
+
+            // Solo auto-open si realmente hay advanced usado (servido desde Razor)
+            const hasAdvanced = @((hasAdvancedActive ? "true" : "false"));
+            if (hasAdvanced) collapse.show(); else collapse.hide();
+
+            clearBtn.addEventListener("click", () => {
+                window.location.href = "@Url.Action("Index", "Tickets")";
+            });
+        })();
+    </script>
+
+    <script src="~/js/tickets.js" asp-append-version="true"></script>
+}

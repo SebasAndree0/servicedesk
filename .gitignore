@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/node_modules/
+*.user
+*.suo
+*.cache
+
+backend/ServiceDesk.Api/cls/
+backend/ServiceDesk.Api/curl/
+backend/ServiceDesk.Api/dotnet/

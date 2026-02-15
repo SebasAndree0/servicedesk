@@ -1,0 +1,118 @@
+@model ServiceDesk.Web.Controllers.CreateUserVm
+@{
+    Layout = "_AdminUsersLayout";
+    ViewData["Title"] = "Nuevo usuario";
+}
+
+@section Styles {
+<style>
+  /* SOLO AdminUsers/Create */
+  .au-wrap { max-width: 980px; }
+  .au-card { padding: 26px; }
+  .au-sub { color: rgba(255,255,255,.60); }
+  .au-topline { height: 1px; background: rgba(255,255,255,.08); margin: 14px 0 18px; }
+  .au-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top: 18px; }
+  .au-actions .nd-btn { min-width: 140px; }
+</style>
+}
+
+<div class="au-wrap mx-auto">
+  <div class="nd-pagehead">
+    <div>
+      <h1 class="nd-title">
+        Nuevo usuario
+        <span class="nd-badge">Administrador</span>
+      </h1>
+
+      <div class="nd-subtitle au-sub">
+        Crea una cuenta. El inicio de sesión funciona con <strong>usuario</strong> o <strong>email</strong>.
+      </div>
+    </div>
+
+    <div class="nd-actions">
+      <a class="nd-btn" asp-action="Index">Volver</a>
+    </div>
+  </div>
+
+  @if (TempData["Error"] != null)
+  {
+    <div class="alert alert-danger">@TempData["Error"]</div>
+  }
+
+  <div class="admin-card au-card">
+    <div class="au-topline"></div>
+
+    <form method="post" novalidate>
+      @Html.AntiForgeryToken()
+
+      <div class="row g-3">
+
+        <div class="col-12">
+          <label class="form-label">Nombre de usuario <span class="text-warning">*</span></label>
+          <input class="form-control" asp-for="Username" required
+                 placeholder="Ej: soporte, admin, juan"
+                 autocomplete="username" />
+          <div class="form-text text-secondary">Sin espacios. Se usará para iniciar sesión.</div>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Nombre visible <span class="text-warning">*</span></label>
+          <input class="form-control" asp-for="DisplayName" required
+                 placeholder="Ej: Soporte" />
+          <div class="form-text text-secondary">Este nombre se verá en la UI.</div>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Email <span class="text-secondary">(opcional)</span></label>
+          <input class="form-control" asp-for="Email" type="email"
+                 placeholder="Ej: soporte@tuempresa.cl"
+                 autocomplete="email" />
+          <div class="form-text text-secondary">Opcional, pero recomendado si quieres iniciar sesión también con email.</div>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Contraseña <span class="text-warning">*</span></label>
+          <div class="input-group">
+            <input class="form-control" asp-for="Password" type="password"
+                   id="pwdCreate" required autocomplete="new-password"
+                   placeholder="Crea una contraseña segura" />
+            <button class="nd-btn" type="button" id="btnPwdCreate">Mostrar</button>
+          </div>
+
+          <div class="form-text text-secondary">
+            Si tu backend exige mayúscula y símbolo, ejemplo: <strong>Abc!1234</strong>.
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="form-check">
+            <input class="form-check-input" asp-for="IsActive" id="isActiveCreate" />
+            <label class="form-check-label" for="isActiveCreate">Activo</label>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="au-actions">
+        <button class="nd-btn primary" type="submit">Crear usuario</button>
+        <a class="nd-btn" asp-action="Index">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+@section Scripts {
+<script>
+  (function () {
+    const input = document.getElementById("pwdCreate");
+    const btn = document.getElementById("btnPwdCreate");
+    if (!input || !btn) return;
+
+    btn.addEventListener("click", function () {
+      const isPwd = input.type === "password";
+      input.type = isPwd ? "text" : "password";
+      btn.textContent = isPwd ? "Ocultar" : "Mostrar";
+    });
+  })();
+</script>
+}

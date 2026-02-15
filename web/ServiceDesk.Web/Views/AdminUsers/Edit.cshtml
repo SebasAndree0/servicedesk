@@ -1,0 +1,117 @@
+@model ServiceDesk.Web.Controllers.EditUserVm
+@{
+    Layout = "_AdminUsersLayout";
+    ViewData["Title"] = "Editar usuario";
+}
+
+@section Styles {
+<style>
+  /* SOLO AdminUsers/Edit */
+  .au-wrap { max-width: 980px; }
+  .au-card { padding: 26px; }
+  .au-sub { color: rgba(255,255,255,.60); }
+  .au-topline { height: 1px; background: rgba(255,255,255,.08); margin: 14px 0 18px; }
+  .au-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top: 18px; }
+  .au-actions .nd-btn { min-width: 140px; }
+</style>
+}
+
+<div class="au-wrap mx-auto">
+  <div class="nd-pagehead">
+    <div>
+      <h1 class="nd-title">
+        Editar usuario
+        <span class="nd-badge">Administrador</span>
+      </h1>
+
+      <div class="nd-subtitle au-sub">
+        Actualiza datos. El usuario puede iniciar sesión con <strong>usuario</strong> o <strong>email</strong>.
+      </div>
+    </div>
+
+    <div class="nd-actions">
+      <a class="nd-btn" asp-action="Index">Volver</a>
+    </div>
+  </div>
+
+  @if (TempData["Error"] != null)
+  {
+    <div class="alert alert-danger">@TempData["Error"]</div>
+  }
+
+  <div class="admin-card au-card">
+    <div class="au-topline"></div>
+
+    <form method="post" novalidate>
+      @Html.AntiForgeryToken()
+      <input type="hidden" asp-for="Id" />
+
+      <div class="row g-3">
+
+        <div class="col-12">
+          <label class="form-label">Nombre de usuario <span class="text-secondary">(opcional)</span></label>
+          <input class="form-control" asp-for="Username"
+                 placeholder="Dejar vacío para no cambiar"
+                 autocomplete="username" />
+          <div class="form-text text-secondary">Si lo dejas vacío, no se cambia.</div>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Nombre visible <span class="text-warning">*</span></label>
+          <input class="form-control" asp-for="DisplayName" required />
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Email <span class="text-secondary">(opcional)</span></label>
+          <input class="form-control" asp-for="Email" type="email"
+                 autocomplete="email"
+                 placeholder="Ej: soporte@empresa.cl" />
+          <div class="form-text text-secondary">Recomendado si quieres iniciar sesión también con email.</div>
+        </div>
+
+        <div class="col-12">
+          <div class="form-check">
+            <input class="form-check-input" asp-for="IsActive" id="isActiveEdit" />
+            <label class="form-check-label" for="isActiveEdit">Activo</label>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Nueva contraseña <span class="text-secondary">(opcional)</span></label>
+
+          <div class="input-group">
+            <input class="form-control" asp-for="NewPassword" type="password"
+                   id="pwdEdit"
+                   autocomplete="new-password"
+                   placeholder="Dejar vacío para no cambiar" />
+            <button class="nd-btn" type="button" id="btnPwdEdit">Mostrar</button>
+          </div>
+
+          <div class="form-text text-secondary">Si la dejas vacía, no se cambia.</div>
+        </div>
+
+      </div>
+
+      <div class="au-actions">
+        <button class="nd-btn primary" type="submit">Guardar cambios</button>
+        <a class="nd-btn" asp-action="Index">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+@section Scripts {
+<script>
+  (function () {
+    const input = document.getElementById("pwdEdit");
+    const btn = document.getElementById("btnPwdEdit");
+    if (!input || !btn) return;
+
+    btn.addEventListener("click", function () {
+      const isPwd = input.type === "password";
+      input.type = isPwd ? "text" : "password";
+      btn.textContent = isPwd ? "Ocultar" : "Mostrar";
+    });
+  })();
+</script>
+}

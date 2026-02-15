@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - NovaDesk</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+
+    <style>
+        /* Fondo tipo SaaS */
+        .auth-bg {
+            min-height: 100vh;
+            background:
+              radial-gradient(1200px 600px at 20% 10%, rgba(13,110,253,.25), transparent 60%),
+              radial-gradient(900px 500px at 80% 20%, rgba(32,201,151,.18), transparent 55%),
+              radial-gradient(900px 600px at 50% 90%, rgba(220,53,69,.10), transparent 55%),
+              linear-gradient(180deg, #0b0f14 0%, #0a0d12 100%);
+        }
+
+        /* Card “glass” */
+        .auth-card {
+            background: rgba(20, 24, 33, .72);
+            border: 1px solid rgba(255,255,255,.10);
+            box-shadow: 0 20px 60px rgba(0,0,0,.45);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 16px;
+        }
+
+        .brand-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: .6rem;
+            padding: .45rem .75rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,.12);
+            background: rgba(255,255,255,.04);
+        }
+
+        .brand-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: #0d6efd;
+            box-shadow: 0 0 0 6px rgba(13,110,253,.18);
+        }
+
+        .muted {
+            color: rgba(255,255,255,.65);
+        }
+
+        .form-control, .input-group-text {
+            background: rgba(10, 13, 18, .35) !important;
+            border-color: rgba(255,255,255,.14) !important;
+            color: #fff !important;
+        }
+
+        .form-control:focus {
+            box-shadow: 0 0 0 .2rem rgba(13,110,253,.20) !important;
+            border-color: rgba(13,110,253,.55) !important;
+        }
+
+        .btn-primary {
+            box-shadow: 0 14px 30px rgba(13,110,253,.22);
+        }
+
+        .footer-mini {
+            color: rgba(255,255,255,.45);
+        }
+    </style>
+</head>
+
+<body class="auth-bg text-light">
+    <div class="container py-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="brand-pill">
+                <span class="brand-dot"></span>
+                <span class="fw-semibold">NovaDesk</span>
+            </div>
+
+            <div class="small muted d-none d-md-block">
+                Acceso interno • Soporte • Tickets
+            </div>
+        </div>
+
+        <main class="py-5">
+            @RenderBody()
+        </main>
+
+        <div class="text-center footer-mini small pb-3">
+            © 2026 - NovaDesk
+        </div>
+    </div>
+
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

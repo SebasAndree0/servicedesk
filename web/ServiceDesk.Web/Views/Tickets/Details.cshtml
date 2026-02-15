@@ -1,0 +1,641 @@
+@using System.Linq
+@model ServiceDesk.Web.Models.Tickets.TicketDetailsResponse
+
+@{
+    ViewData["Title"] = "Detalle Ticket";
+    var nombre = Context.Session.GetString("display_name") ?? "Usuario";
+}
+
+<style>
+    .panel-card {
+        background: rgba(20, 24, 33, .72);
+        border: 1px solid rgba(255,255,255,.10);
+        box-shadow: 0 16px 50px rgba(0,0,0,.35);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 16px;
+    }
+
+    .muted { color: rgba(255,255,255,.65); }
+
+    .badge-soft {
+        border: 1px solid rgba(255,255,255,.12);
+        background: rgba(255,255,255,.06);
+    }
+
+    .btn-soft {
+        background: rgba(255,255,255,.06);
+        border: 1px solid rgba(255,255,255,.12);
+        color: #fff;
+    }
+    .btn-soft:hover {
+        background: rgba(255,255,255,.10);
+        border-color: rgba(255,255,255,.18);
+        color: #fff;
+    }
+
+    .divider {
+        border-color: rgba(255,255,255,.10) !important;
+    }
+
+    .meta-box {
+        background: rgba(10, 13, 18, .35);
+        border: 1px solid rgba(255,255,255,.10);
+        border-radius: 14px;
+        padding: 14px;
+    }
+
+    .desc-box {
+        background: rgba(10, 13, 18, .35);
+        border: 1px solid rgba(255,255,255,.10);
+        border-radius: 14px;
+        padding: 14px;
+        white-space: pre-wrap;
+    }
+
+    .title-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(13,110,253,.95);
+        box-shadow: 0 0 0 6px rgba(13,110,253,.14);
+        flex: 0 0 auto;
+    }
+
+    /* ===== Evidencia ===== */
+    .ev-wrap { display:flex; flex-direction:column; gap: 12px; }
+    .ev-card {
+        background: rgba(10, 13, 18, .35);
+        border: 1px solid rgba(255,255,255,.10);
+        border-radius: 14px;
+        padding: 14px;
+        transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .ev-card:hover { transform: translateY(-1px); box-shadow: 0 14px 40px rgba(0,0,0,.25); }
+    .ev-card.ev-new {
+        border-color: rgba(25, 135, 84, .55);
+        box-shadow: 0 0 0 .2rem rgba(25,135,84,.12);
+        background: rgba(25, 135, 84, .08);
+    }
+
+    .ev-top { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .ev-name { font-weight: 800; color: rgba(255,255,255,.92); }
+    .ev-meta { font-size: .85rem; color: rgba(255,255,255,.60); }
+    .ev-actions { display:flex; gap:8px; align-items:center; }
+
+    .ev-img {
+        margin-top: 10px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.10);
+        width: 100%;
+        max-width: 520px;
+        max-height: 320px;
+        object-fit: cover;
+        display:block;
+        background: rgba(255,255,255,.03);
+    }
+
+    .ev-uploader {
+        border: 1px dashed rgba(255,255,255,.18);
+        background: rgba(255,255,255,.03);
+        border-radius: 14px;
+        padding: 12px;
+    }
+
+    .ev-fileitem{
+        display:flex;
+        justify-content:space-between;
+        gap:12px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(255,255,255,.03);
+        margin-top: 8px;
+        color: rgba(255,255,255,.82);
+        font-size: .92rem;
+    }
+</style>
+
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="title-dot"></span>
+            <h2 class="mb-0">Detalle</h2>
+            <span class="badge badge-soft text-secondary">Ticket</span>
+        </div>
+        <div class="muted small mt-1">Información completa del ticket, evidencia, comentarios y actividad.</div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a class="btn btn-soft" asp-action="Index">Volver</a>
+
+        @if (Model != null)
+        {
+            <a class="btn btn-outline-light" asp-action="Edit" asp-route-id="@Model.Id">Editar</a>
+        }
+    </div>
+</div>
+
+@if (ViewBag.Error != null)
+{
+    <div class="alert alert-danger">@ViewBag.Error</div>
+}
+
+@if (Model == null)
+{
+    <div class="alert alert-warning">Ticket no encontrado.</div>
+    return;
+}
+
+@{
+    var statusClass = Model.Status switch
+    {
+        "Closed" => "bg-success",
+        "InProgress" => "bg-info text-dark",
+        _ => "bg-warning text-dark"
+    };
+
+    var prioClass = Model.Priority switch
+    {
+        "P1" => "bg-danger",
+        "P2" => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+
+    var statusLabel = Model.Status switch
+    {
+        "Closed" => "Cerrado",
+        "InProgress" => "En progreso",
+        _ => "Abierto"
+    };
+
+    var activities = Model.Activities?.OrderByDescending(a => a.CreatedAtUtc).ToList();
+    var comments = Model.Comments?.OrderByDescending(c => c.AtUtc).ToList();
+
+    // ✅ UpdatedAtUtc es DateTime (NO nullable). Si alguna vez te llega "vacío",
+    // lo único posible es DateTime.MinValue. Lo mostramos como "-".
+    var updatedLabel = (Model.UpdatedAtUtc == DateTime.MinValue)
+        ? "-"
+        : Model.UpdatedAtUtc.ToLocalTime().ToString("dd-MM-yyyy HH:mm");
+}
+
+<div class="panel-card">
+    <div class="p-3 p-md-4">
+
+        <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
+            <div class="w-100">
+                <div class="d-flex flex-column">
+                    <h3 class="mb-1 fw-bold">@Model.Title</h3>
+                    <div class="d-flex flex-wrap gap-2 mt-1">
+                        <span class="badge @statusClass">@statusLabel</span>
+                        <span class="badge @prioClass">@Model.Priority</span>
+                        <span class="badge badge-soft muted">ID: @Model.Id.ToString().Substring(0, 8)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 align-self-start">
+                @if (Model.Status == "Closed")
+                {
+                    <form method="post" asp-action="Reopen" asp-route-id="@Model.Id">
+                        @Html.AntiForgeryToken()
+                        <button class="btn btn-outline-success" type="submit">Reabrir</button>
+                    </form>
+                }
+                else
+                {
+                    <form method="post" asp-action="Close" asp-route-id="@Model.Id">
+                        @Html.AntiForgeryToken()
+                        <button class="btn btn-outline-warning" type="submit">Cerrar</button>
+                    </form>
+                }
+            </div>
+        </div>
+
+        <hr class="divider my-4" />
+
+        <div class="row g-3">
+            <div class="col-12 col-lg-8">
+                <div class="muted small mb-2">Descripción</div>
+                <div class="desc-box">
+                    @if (string.IsNullOrWhiteSpace(Model.Description))
+                    {
+                        <span class="muted">Sin descripción.</span>
+                    }
+                    else
+                    {
+                        @Model.Description
+                    }
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-4">
+                <div class="muted small mb-2">Metadatos</div>
+                <div class="meta-box">
+                    <div class="d-flex justify-content-between">
+                        <span class="muted">Creado por</span>
+                        <span class="text-nowrap">@Model.CreatedBy</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-2">
+                        <span class="muted">Asignado</span>
+                        <span class="text-nowrap">@(Model.AssignedTo ?? "-")</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-2">
+                        <span class="muted">Categoría</span>
+                        <span class="text-nowrap">@Model.Category</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-2">
+                        <span class="muted">Tipo</span>
+                        <span class="text-nowrap">@Model.Type</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-2">
+                        <span class="muted">SLA</span>
+                        <span class="text-nowrap">@Model.SlaHours h</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-2">
+                        <span class="muted">Creado</span>
+                        <span class="text-nowrap">@Model.CreatedAtUtc.ToLocalTime().ToString("dd-MM-yyyy HH:mm")</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-2">
+                        <span class="muted">Actualizado</span>
+                        <span class="text-nowrap">@updatedLabel</span>
+                    </div>
+                </div>
+
+                <div class="mt-3 d-grid gap-2">
+                    <a class="btn btn-primary" asp-action="Edit" asp-route-id="@Model.Id">Editar ticket</a>
+                    <a class="btn btn-soft" asp-action="Index">Volver a tickets</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* =======================
+   ✅ Evidencia (PRO)
+   ======================= *@
+<div class="panel-card mt-3">
+    <div class="p-3 p-md-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <h5 class="mb-0">Evidencia</h5>
+                <div class="muted small">Sube, previsualiza, descarga y borra sin recargar.</div>
+            </div>
+            <span class="badge badge-soft muted" id="evCount">...</span>
+        </div>
+
+        @* ✅ Upload AJAX (solo archivos; el "by" real lo define el controller por sesión) *@
+        <div class="ev-uploader mb-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-8">
+                    <input class="form-control bg-dark text-light border-secondary"
+                           type="file"
+                           id="evFiles"
+                           multiple
+                           accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" />
+                </div>
+                <div class="col-12 col-md-4 d-grid">
+                    <button class="btn btn-success" id="btnUpload" type="button">Subir</button>
+                </div>
+            </div>
+
+            <div id="evFileList" style="display:none;"></div>
+            <div id="evUploadMsg" class="muted small mt-2"></div>
+        </div>
+
+        <div id="evBox" class="meta-box muted">Cargando evidencia...</div>
+    </div>
+</div>
+
+@* =======================
+   ✅ Comentarios
+   ======================= *@
+<div class="panel-card mt-3">
+    <div class="p-3 p-md-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <h5 class="mb-0">Comentarios</h5>
+                <div class="muted small">Notas y conversación del ticket.</div>
+            </div>
+            <span class="badge badge-soft muted">@((comments?.Count ?? 0).ToString())</span>
+        </div>
+
+        <form method="post" asp-action="AddComment" asp-route-id="@Model.Id">
+            @Html.AntiForgeryToken()
+
+            <div class="row g-2">
+                <div class="col-12 col-md-3">
+                    <label class="form-label muted small">Por</label>
+                    <input class="form-control bg-dark text-light border-secondary"
+                           name="By"
+                           value="@nombre" />
+                </div>
+
+                <div class="col-12 col-md-9">
+                    <label class="form-label muted small">Comentario</label>
+                    <textarea class="form-control bg-dark text-light border-secondary"
+                              name="Comment"
+                              rows="2"
+                              placeholder="Escribe una actualización..."></textarea>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end mt-2">
+                <button class="btn btn-primary" type="submit">Agregar</button>
+            </div>
+        </form>
+
+        <hr class="divider my-3" />
+
+        @if (comments == null || comments.Count == 0)
+        {
+            <div class="meta-box muted">Sin comentarios todavía.</div>
+        }
+        else
+        {
+            <ul class="list-group list-group-flush">
+                @foreach (var c in comments)
+                {
+                    <li class="list-group-item bg-dark text-light border-secondary" style="border-color: rgba(255,255,255,.10) !important;">
+                        <div class="d-flex justify-content-between gap-3">
+                            <div>
+                                <strong>@c.By</strong>
+                                <div class="muted small">@c.Message</div>
+                            </div>
+                            <div class="muted small text-nowrap">
+                                @c.AtUtc.ToLocalTime().ToString("dd-MM-yyyy HH:mm")
+                            </div>
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+@* =======================
+   ✅ Actividad
+   ======================= *@
+<div class="panel-card mt-3">
+    <div class="p-3 p-md-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <h5 class="mb-0">Actividad</h5>
+                <div class="muted small">Historial de acciones y cambios.</div>
+            </div>
+            <span class="badge badge-soft muted">@((activities?.Count ?? 0).ToString())</span>
+        </div>
+
+        @if (activities == null || activities.Count == 0)
+        {
+            <div class="meta-box muted">Sin actividad registrada.</div>
+        }
+        else
+        {
+            <ul class="list-group list-group-flush">
+                @foreach (var a in activities)
+                {
+                    <li class="list-group-item bg-dark text-light border-secondary" style="border-color: rgba(255,255,255,.10) !important;">
+                        <div class="d-flex justify-content-between gap-3">
+                            <div>
+                                <strong>@a.By</strong>
+                                <span class="muted">(@a.Action)</span>
+                                <div class="muted small">@a.Message</div>
+                            </div>
+                            <div class="muted small text-nowrap">
+                                @a.CreatedAtUtc.ToLocalTime().ToString("dd-MM-yyyy HH:mm")
+                            </div>
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+  const ticketId = "@Model.Id";
+  const box = document.getElementById("evBox");
+  const badge = document.getElementById("evCount");
+
+  const inputFiles = document.getElementById("evFiles");
+  const fileList = document.getElementById("evFileList");
+  const btnUpload = document.getElementById("btnUpload");
+  const msg = document.getElementById("evUploadMsg");
+
+  function esc(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (m) => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[m]));
+  }
+
+  function get(obj, ...names) {
+    for (const n of names) if (obj && obj[n] != null) return obj[n];
+    return null;
+  }
+
+  function isImage(fileName, contentType) {
+    if ((contentType || "").startsWith("image/")) return true;
+    return /\.(png|jpg|jpeg|webp|gif)$/i.test(fileName || "");
+  }
+
+  async function fetchJson(url, options) {
+    const res = await fetch(url, options || { headers: { "Accept": "application/json" }});
+    const text = await res.text();
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 220)}`);
+    try { return JSON.parse(text); } catch { return text; }
+  }
+
+  function normalizeItems(data) {
+    const items = (data && (data.items || data.Items)) ? (data.items || data.Items) : data;
+    return Array.isArray(items) ? items : [];
+  }
+
+  function renumberTitles() {
+    const cards = box.querySelectorAll(".ev-card");
+    let i = 1;
+    cards.forEach(card => {
+      const t = card.querySelector("[data-title='1']");
+      if (t) {
+        const raw = t.getAttribute("data-rawname") || "archivo";
+        t.innerHTML = `Evidencia ${i}: ${esc(raw)}`;
+      }
+      i++;
+    });
+    badge.textContent = cards.length.toString();
+  }
+
+  function render(items) {
+    badge.textContent = items.length.toString();
+
+    if (!items.length) {
+      box.className = "meta-box muted";
+      box.innerHTML = `<div class="muted">No hay evidencia adjunta.</div>`;
+      return;
+    }
+
+    box.className = "ev-wrap";
+    box.innerHTML = items.map((it, idx) => {
+      const n = idx + 1;
+
+      const attachmentId = get(it, "attachmentId", "id", "fileId");
+      const evidenceId   = get(it, "evidenceId");
+      const rawName      = get(it, "fileName", "name", "originalName") || `archivo-${n}`;
+      const type         = get(it, "contentType", "mimeType") || "";
+      const size         = get(it, "size", "bytes", "length");
+
+      const downloadUrl = (evidenceId && !attachmentId)
+        ? `/Tickets/DownloadEvidence/${evidenceId}`
+        : (attachmentId ? `/Tickets/DownloadAttachment/${ticketId}/${attachmentId}` : null);
+
+      const img = downloadUrl && isImage(rawName, type);
+
+      const delUrl = attachmentId
+        ? `/Tickets/DeleteAttachment/${ticketId}/${attachmentId}`
+        : (evidenceId ? `/Tickets/DeleteEvidence/${evidenceId}` : null);
+
+      return `
+        <div class="ev-card" data-card="1">
+          <div class="ev-top">
+            <div style="min-width:0;">
+              <div class="ev-name text-truncate" data-title="1" data-rawname="${esc(rawName)}">
+                Evidencia ${n}: ${esc(rawName)}
+              </div>
+              <div class="ev-meta">
+                ${esc(type || "archivo")}
+                ${size ? `• ${Math.round(size / 1024)} KB` : ``}
+              </div>
+            </div>
+
+            <div class="ev-actions">
+              ${downloadUrl ? `<a class="btn btn-sm btn-soft" href="${downloadUrl}">Descargar</a>` : ``}
+              ${delUrl ? `<button class="btn btn-sm btn-outline-danger" data-del="1" data-delurl="${esc(delUrl)}">✕</button>` : ``}
+            </div>
+          </div>
+
+          ${img ? `<img class="ev-img" src="${downloadUrl}" alt="${esc(rawName)}" />` : ``}
+        </div>
+      `;
+    }).join("");
+  }
+
+  async function loadEvidence() {
+    try {
+      const data = await fetchJson(`/Tickets/Attachments/${ticketId}`);
+      const items = normalizeItems(data);
+      render(items);
+    } catch (e) {
+      badge.textContent = "0";
+      box.className = "meta-box";
+      box.innerHTML = `<div class="text-danger">No pude cargar evidencia: ${esc(e.message)}</div>`;
+    }
+  }
+
+  function renderSelectedFiles() {
+    const files = Array.from(inputFiles.files || []);
+    if (!files.length) {
+      fileList.style.display = "none";
+      fileList.innerHTML = "";
+      return;
+    }
+
+    fileList.style.display = "block";
+    fileList.innerHTML = files.map(f => {
+      const kb = Math.round((f.size || 0) / 1024);
+      return `<div class="ev-fileitem"><div class="text-truncate" style="max-width:70%;">${esc(f.name)}</div><div class="muted">${kb} KB</div></div>`;
+    }).join("");
+  }
+
+  inputFiles?.addEventListener("change", renderSelectedFiles);
+
+  btnUpload?.addEventListener("click", async () => {
+    const files = Array.from(inputFiles.files || []);
+    if (!files.length) {
+      msg.innerHTML = `<span class="text-warning">Selecciona al menos 1 archivo.</span>`;
+      return;
+    }
+
+    btnUpload.disabled = true;
+    msg.innerHTML = `<span class="muted">Subiendo...</span>`;
+
+    try {
+      const fd = new FormData();
+
+      // ✅ IMPORTANTE: tu controller usa Request.Form.Files, así que SOLO mandamos files.
+      files.forEach(f => fd.append("files", f, f.name));
+
+      const res = await fetch(`/Tickets/UploadEvidenceAjax/${ticketId}`, {
+        method: "POST",
+        body: fd
+      });
+
+      const text = await res.text();
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 220)}`);
+
+      await loadEvidence();
+
+      const cards = box.querySelectorAll(".ev-card");
+      if (cards.length) {
+        const first = cards[0];
+        first.classList.add("ev-new");
+        setTimeout(() => first.classList.remove("ev-new"), 1800);
+      }
+
+      inputFiles.value = "";
+      renderSelectedFiles();
+
+      msg.innerHTML = `<span class="text-success">✅ Evidencia subida.</span>`;
+      setTimeout(() => msg.innerHTML = "", 2000);
+
+    } catch (e) {
+      msg.innerHTML = `<span class="text-danger">❌ No se pudo subir: ${esc(e.message)}</span>`;
+    } finally {
+      btnUpload.disabled = false;
+    }
+  });
+
+  box?.addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("button[data-del='1']");
+    if (!btn) return;
+
+    const delUrl = btn.getAttribute("data-delurl");
+    if (!delUrl) return;
+
+    if (!confirm("¿Borrar esta evidencia?")) return;
+
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(delUrl, { method: "DELETE" });
+      const text = await res.text();
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 220)}`);
+
+      const card = btn.closest(".ev-card");
+      if (card) card.remove();
+
+      renumberTitles();
+
+      if (!box.querySelector(".ev-card")) {
+        badge.textContent = "0";
+        box.className = "meta-box muted";
+        box.innerHTML = `<div class="muted">No hay evidencia adjunta.</div>`;
+      }
+
+    } catch (e) {
+      alert("No se pudo borrar: " + e.message);
+      btn.disabled = false;
+    }
+  });
+
+  loadEvidence();
+})();
+</script>
+}

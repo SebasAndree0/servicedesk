@@ -1,0 +1,393 @@
+@using System
+@using System.Collections.Generic
+@model ServiceDesk.Web.Models.Tickets.TicketUpdateRequest
+
+@{
+    ViewData["Title"] = "Editar Ticket";
+    Layout = "_AdminSLALayout";
+
+    var ticketId = (Guid)(ViewBag.TicketId ?? Guid.Empty);
+
+    // ✅ Session info (según tu app)
+    var username = Context.Session.GetString("username") ?? "";
+    var displayName = Context.Session.GetString("display_name") ?? "";
+    if (string.IsNullOrWhiteSpace(username))
+        username = Context.Session.GetString("email") ?? "—";
+
+    var byLabel = !string.IsNullOrWhiteSpace(displayName) && username != "—"
+        ? $"{displayName} ({username})"
+        : (!string.IsNullOrWhiteSpace(displayName) ? displayName : username);
+
+    var assignees = (IEnumerable<string>)(ViewBag.Assignees ?? new List<string>());
+
+    var selectedAssigned = (Model?.AssignedTo ?? "").Trim();
+    var selectedAssignedLabel = string.IsNullOrWhiteSpace(selectedAssigned) ? "Sin asignar" : selectedAssigned;
+
+    // ✅ Prioridad seleccionada (por si viene null)
+    var selectedPriority = (Model?.Priority ?? "P2").Trim();
+    var selectedPriorityLabel = selectedPriority switch
+    {
+        "P1" => "P1 (Crítica)",
+        "P2" => "P2 (Media)",
+        "P3" => "P3 (Baja)",
+        _ => "P2 (Media)"
+    };
+}
+
+@section Styles {
+<style>
+/* ===== Tickets/Edit - PRO (solo esta página) ===== */
+.te-wrap{ max-width: 1100px; }
+.te-sub{ color: rgba(255,255,255,.62); }
+.te-card{ padding: 22px; }
+
+.te-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  margin-bottom: 16px;
+}
+.te-title{
+  font-size: 40px;
+  font-weight: 900;
+  letter-spacing: .2px;
+  margin: 0;
+  line-height: 1.06;
+}
+.te-badge{
+  display:inline-flex;
+  align-items:center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  border: 1px solid rgba(255,193,7,.35);
+  background: rgba(255,193,7,.12);
+  color: rgba(255,255,255,.92);
+  margin-left: 10px;
+}
+.te-actions .btn{
+  min-height: 44px;
+  padding: 10px 16px;
+  font-weight: 800;
+  border-radius: 999px;
+}
+
+.te-glass{
+  background: linear-gradient(180deg, rgba(20,22,28,.78), rgba(14,16,20,.70)) !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 18px 60px rgba(0,0,0,.45);
+}
+
+.te-hr{
+  height: 1px;
+  background: rgba(255,255,255,.08);
+  margin: 14px 0 18px;
+}
+
+.form-control{
+  background-color: rgba(255,255,255,.06) !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  color: rgba(255,255,255,.92) !important;
+  border-radius: 14px !important;
+}
+.form-control::placeholder{ color: rgba(255,255,255,.40) !important; }
+.form-control:focus{
+  background-color: rgba(255,255,255,.08) !important;
+  border-color: rgba(13,110,253,.55) !important;
+  box-shadow: 0 0 0 .2rem rgba(13,110,253,.15) !important;
+}
+
+.te-help{ color: rgba(255,255,255,.58); font-size: .90rem; }
+
+.te-files{
+  border: 1px dashed rgba(255,255,255,.18);
+  background: rgba(255,255,255,.03);
+  border-radius: 16px;
+  padding: 14px;
+}
+.te-filelist{
+  margin-top: 10px;
+  color: rgba(255,255,255,.72);
+  font-size: .92rem;
+}
+.te-fileitem{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+  margin-top: 8px;
+}
+
+.btn{ border-radius: 12px; }
+.btn-primary{
+  border-radius: 999px !important;
+  padding: 10px 16px !important;
+  font-weight: 900;
+  border: 1px solid rgba(13,110,253,.55);
+  box-shadow: 0 14px 34px rgba(13,110,253,.18);
+}
+.btn-primary:hover{ box-shadow: 0 18px 44px rgba(13,110,253,.22); }
+
+.btn-outline-secondary{
+  border-radius: 999px !important;
+  padding: 10px 16px !important;
+}
+.alert{ border-radius: 14px; border: 1px solid rgba(255,255,255,.10); }
+
+/* ===== Dropdown PRO (evita select blanco nativo) ===== */
+.te-dd-btn{
+  width: 100%;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background-color: rgba(255,255,255,.06) !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  color: rgba(255,255,255,.92) !important;
+  border-radius: 14px !important;
+  padding: .55rem .75rem;
+  min-height: 44px;
+}
+.te-dd-btn:focus{
+  outline: none;
+  box-shadow: 0 0 0 .2rem rgba(13,110,253,.15) !important;
+  border-color: rgba(13,110,253,.55) !important;
+}
+.te-dd-menu{
+  width: 100%;
+  border-radius: 14px;
+  padding: .35rem;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  background: rgba(20, 22, 28, .98) !important;
+  box-shadow: 0 18px 45px rgba(0,0,0,.45);
+}
+.te-dd-item{
+  border-radius: 10px;
+  padding: .55rem .75rem;
+  color: rgba(255,255,255,.90);
+  cursor: pointer;
+}
+.te-dd-item:hover{ background: rgba(255,255,255,.08); }
+.te-dd-item.muted{ color: rgba(255,255,255,.70); }
+
+.te-readonly{
+  background: rgba(255,255,255,.04) !important;
+  border-color: rgba(255,255,255,.10) !important;
+  cursor: default;
+}
+</style>
+}
+
+<div class="te-wrap mx-auto">
+  <div class="te-head">
+    <div>
+      <h1 class="te-title">
+        Editar Ticket
+        <span class="te-badge">Actualización</span>
+      </h1>
+      <div class="te-sub">
+        Actualiza información, prioridad y asignación. También puedes adjuntar evidencia nueva.
+      </div>
+    </div>
+
+    <div class="te-actions">
+      <a class="btn btn-outline-secondary" asp-action="Details" asp-route-id="@ticketId">Volver</a>
+    </div>
+  </div>
+
+  @if (TempData["Error"] != null)
+  {
+    <div class="alert alert-danger">@TempData["Error"]</div>
+  }
+
+  <div class="te-glass">
+    <div class="te-card">
+      <div class="te-hr"></div>
+
+      <form method="post" asp-action="Edit" asp-route-id="@ticketId" enctype="multipart/form-data" novalidate>
+        @Html.AntiForgeryToken()
+
+        <!-- ✅ Evita CS8602: Model puede venir null -->
+        <input type="hidden" name="EvidenceBy" value="@(Model?.By ?? "")" />
+
+        <div class="row g-3">
+
+          <div class="col-12">
+            <label class="form-label">Título <span class="text-warning">*</span></label>
+            <input class="form-control"
+                   asp-for="Title"
+                   placeholder="Ej: POS no imprime boleta"
+                   autocomplete="off" />
+            <span class="text-danger" asp-validation-for="Title"></span>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Descripción</label>
+            <textarea class="form-control"
+                      asp-for="Description"
+                      rows="5"
+                      placeholder="Describe cambios, pasos, contexto, etc."></textarea>
+            <span class="text-danger" asp-validation-for="Description"></span>
+          </div>
+
+          <!-- ✅ Prioridad (dropdown PRO, sin select nativo blanco) -->
+          <div class="col-12 col-md-4">
+            <label class="form-label">Prioridad</label>
+
+            <input type="hidden" asp-for="Priority" id="PriorityHiddenEdit" />
+
+            <div class="dropdown w-100">
+              <button class="te-dd-btn dropdown-toggle"
+                      type="button"
+                      id="priorityBtnEdit"
+                      data-bs-toggle="dropdown"
+                      aria-expanded="false">
+                <span id="priorityLabelEdit">@selectedPriorityLabel</span>
+              </button>
+
+              <ul class="dropdown-menu te-dd-menu" aria-labelledby="priorityBtnEdit">
+                <li><div class="te-dd-item" data-target="PriorityHiddenEdit" data-label="priorityLabelEdit" data-value="P1">P1 (Crítica)</div></li>
+                <li><div class="te-dd-item" data-target="PriorityHiddenEdit" data-label="priorityLabelEdit" data-value="P2">P2 (Media)</div></li>
+                <li><div class="te-dd-item" data-target="PriorityHiddenEdit" data-label="priorityLabelEdit" data-value="P3">P3 (Baja)</div></li>
+              </ul>
+            </div>
+
+            <span class="text-danger" asp-validation-for="Priority"></span>
+          </div>
+
+          <!-- ✅ By NO editable (controller lo fuerza) -->
+          <div class="col-12 col-md-4">
+            <label class="form-label">By</label>
+
+            <input type="hidden" asp-for="By" />
+
+            <input class="form-control te-readonly"
+                   value="@byLabel"
+                   readonly />
+
+            <div class="te-help mt-1">Se completa automáticamente desde la sesión (auditoría).</div>
+            <span class="text-danger" asp-validation-for="By"></span>
+          </div>
+
+          <!-- ✅ Asignado a (dropdown PRO) -->
+          <div class="col-12 col-md-4">
+            <label class="form-label">Asignado a</label>
+
+            <input type="hidden" asp-for="AssignedTo" id="AssignedToHiddenEdit" />
+
+            <div class="dropdown w-100">
+              <button class="te-dd-btn dropdown-toggle"
+                      type="button"
+                      id="assigneeBtnEdit"
+                      data-bs-toggle="dropdown"
+                      aria-expanded="false">
+                <span id="assigneeLabelEdit">@selectedAssignedLabel</span>
+              </button>
+
+              <ul class="dropdown-menu te-dd-menu" aria-labelledby="assigneeBtnEdit">
+                <li><div class="te-dd-item muted" data-target="AssignedToHiddenEdit" data-label="assigneeLabelEdit" data-value="">Sin asignar</div></li>
+                <li><hr class="dropdown-divider" /></li>
+
+                @foreach (var a in assignees)
+                {
+                  <li><div class="te-dd-item" data-target="AssignedToHiddenEdit" data-label="assigneeLabelEdit" data-value="@a">@a</div></li>
+                }
+              </ul>
+            </div>
+
+            <div class="te-help mt-1">Define quién lo toma (puedes dejarlo vacío).</div>
+            <span class="text-danger" asp-validation-for="AssignedTo"></span>
+          </div>
+
+          <!-- ✅ Evidencia nueva -->
+          <div class="col-12">
+            <label class="form-label">Agregar evidencia (opcional)</label>
+            <div class="te-files">
+              <input class="form-control"
+                     type="file"
+                     id="evidenceFilesEdit"
+                     name="EvidenceFiles"
+                     multiple
+                     accept=".png,.jpg,.jpeg,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" />
+              <div class="te-help mt-2">
+                Adjunta evidencia adicional (fotos, PDF, Word, Excel, etc.). Se guardará como evidencia del ticket.
+              </div>
+
+              <div class="te-filelist" id="fileListEdit" style="display:none;"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+          <button type="submit" class="btn btn-primary">Guardar</button>
+          <a class="btn btn-outline-secondary" asp-action="Details" asp-route-id="@ticketId">Cancelar</a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+  <partial name="_ValidationScriptsPartial" />
+
+  <script>
+    (function () {
+      // ===== File list preview =====
+      const input = document.getElementById("evidenceFilesEdit");
+      const list = document.getElementById("fileListEdit");
+
+      if (input && list) {
+        input.addEventListener("change", function () {
+          const files = Array.from(input.files || []);
+          if (!files.length) {
+            list.style.display = "none";
+            list.innerHTML = "";
+            return;
+          }
+
+          list.style.display = "block";
+          list.innerHTML = files.map(f => {
+            const sizeKb = Math.round((f.size || 0) / 1024);
+            return `
+              <div class="te-fileitem">
+                <div class="text-truncate" style="max-width: 70%;">${f.name}</div>
+                <div class="text-secondary">${sizeKb} KB</div>
+              </div>
+            `;
+          }).join("");
+        });
+      }
+
+      // ===== init hidden values (por si vienen vacíos) =====
+      const prioHidden = document.getElementById("PriorityHiddenEdit");
+      if (prioHidden && !prioHidden.value) prioHidden.value = "@selectedPriority";
+
+      const asgHidden = document.getElementById("AssignedToHiddenEdit");
+      if (asgHidden && !asgHidden.value) asgHidden.value = "@selectedAssigned";
+
+      // ===== handler genérico dropdown PRO -> hidden input + label =====
+      document.querySelectorAll(".te-dd-item[data-target]").forEach(el => {
+        el.addEventListener("click", () => {
+          const targetId = el.getAttribute("data-target");
+          const labelId  = el.getAttribute("data-label");
+          const value    = el.getAttribute("data-value") ?? "";
+          const text     = (el.textContent ?? "").trim();
+
+          const input = targetId ? document.getElementById(targetId) : null;
+          const label = labelId ? document.getElementById(labelId) : null;
+
+          if (input) input.value = value;
+          if (label) label.textContent = text;
+        });
+      });
+    })();
+  </script>
+}

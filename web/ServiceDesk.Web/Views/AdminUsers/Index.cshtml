@@ -1,0 +1,194 @@
+@model List<ServiceDesk.Web.Controllers.UserItemVm>
+@{
+    ViewData["Title"] = "Usuarios";
+    Layout = "_AdminUsersLayout";
+}
+
+@section Styles {
+<style>
+/* ===== AdminUsers/Index - PRO ===== */
+.au-wrap{ max-width: 1180px; }
+.au-sub{ color: rgba(255,255,255,.62); }
+.au-card{ padding: 22px; }
+.au-actions .btn{ min-height: 44px; padding: 10px 16px; font-weight: 700; border-radius: 999px; }
+.au-actions .btn-primary{ box-shadow: 0 14px 34px rgba(13,110,253,.18); }
+.au-actions .btn-primary:hover{ box-shadow: 0 18px 44px rgba(13,110,253,.22); }
+
+.au-tablecard{
+  overflow:hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: linear-gradient(180deg, rgba(20,22,28,.78), rgba(14,16,20,.70));
+  box-shadow: 0 18px 60px rgba(0,0,0,.45);
+}
+
+.au-table{ margin:0; color: rgba(255,255,255,.92); }
+.au-table thead th{
+  background: rgba(255,255,255,.06);
+  border-bottom: 1px solid rgba(255,255,255,.10) !important;
+  color: rgba(255,255,255,.88);
+  font-weight: 800;
+  padding: 16px 18px;
+}
+.au-table td{
+  border-color: rgba(255,255,255,.10) !important;
+  padding: 16px 18px;
+  vertical-align: middle;
+}
+.au-table tbody tr:hover{ background: rgba(255,255,255,.03); }
+
+.au-right{ text-align:right; }
+.au-btnpill{
+  border-radius: 999px !important;
+  padding: 8px 14px !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  background: rgba(255,255,255,.06) !important;
+  color:#fff !important;
+}
+.au-btnpill:hover{
+  background: rgba(255,255,255,.10) !important;
+  border-color: rgba(255,255,255,.20) !important;
+}
+.au-btndanger{
+  border-radius: 999px !important;
+  padding: 8px 14px !important;
+  border: 1px solid rgba(220,53,69,.55) !important;
+  background: rgba(220,53,69,.08) !important;
+  color: rgba(255,255,255,.95) !important;
+}
+.au-btndanger:hover{
+  background: rgba(220,53,69,.14) !important;
+  border-color: rgba(220,53,69,.75) !important;
+}
+
+/* ✅ Badge estado PRO */
+.au-status{
+  display:inline-flex;
+  align-items:center;
+  gap:.45rem;
+  padding: .32rem .70rem;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: .82rem;
+  letter-spacing: .2px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.06);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+.au-status::before{
+  content:"";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.35);
+  box-shadow: 0 0 0 6px rgba(255,255,255,.06);
+}
+.au-status.ok{
+  border-color: rgba(25,135,84,.35);
+  background: rgba(25,135,84,.14);
+  color: rgba(255,255,255,.92);
+}
+.au-status.ok::before{
+  background: rgba(25,135,84,.95);
+  box-shadow: 0 0 0 6px rgba(25,135,84,.18);
+}
+.au-status.off{
+  border-color: rgba(220,53,69,.30);
+  background: rgba(220,53,69,.12);
+  color: rgba(255,255,255,.88);
+}
+.au-status.off::before{
+  background: rgba(220,53,69,.90);
+  box-shadow: 0 0 0 6px rgba(220,53,69,.16);
+}
+
+/* alert nicer dentro de esta página */
+.alert{ border-radius: 14px; border: 1px solid rgba(255,255,255,.10); }
+</style>
+}
+
+<div class="au-wrap mx-auto">
+  <div class="nd-pagehead">
+    <div>
+      <h1 class="nd-title">
+        Usuarios <span class="nd-badge">Administrador</span>
+      </h1>
+      <div class="nd-subtitle au-sub">
+        Administración de cuentas (Identity). Inicio de sesión con <strong>usuario</strong> o <strong>email</strong>.
+      </div>
+    </div>
+
+    <div class="nd-actions au-actions">
+      <a class="btn btn-primary" asp-action="Create">Nuevo usuario</a>
+    </div>
+  </div>
+
+  @if (TempData["Error"] != null)
+  {
+    <div class="alert alert-danger">@TempData["Error"]</div>
+  }
+  @if (TempData["Success"] != null)
+  {
+    <div class="alert alert-success">@TempData["Success"]</div>
+  }
+
+  <div class="au-tablecard">
+    <div class="table-responsive">
+      <table class="table au-table">
+        <thead>
+          <tr>
+            <th>Nombre de usuario</th>
+            <th>Nombre visible</th>
+            <th>Email</th>
+            <th>Estado</th>
+            <th class="au-right">Acciones</th>
+          </tr>
+        </thead>
+
+        <tbody>
+        @if (Model == null || Model.Count == 0)
+        {
+          <tr>
+            <td colspan="5" class="text-secondary">No hay usuarios.</td>
+          </tr>
+        }
+        else
+        {
+          foreach (var u in Model)
+          {
+            <tr>
+              <td class="fw-semibold">@u.Username</td>
+              <td>@u.DisplayName</td>
+              <td>@(string.IsNullOrWhiteSpace(u.Email) ? "-" : u.Email)</td>
+              <td>
+                @if (u.IsActive)
+                {
+                  <span class="au-status ok">Activo</span>
+                }
+                else
+                {
+                  <span class="au-status off">Inactivo</span>
+                }
+              </td>
+              <td class="au-right">
+                <div class="d-inline-flex gap-2">
+                  <a class="btn btn-sm au-btnpill" asp-action="Edit" asp-route-id="@u.Id">Editar</a>
+
+                  <form method="post" asp-action="Delete" asp-route-id="@u.Id" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <button class="btn btn-sm au-btndanger"
+                            type="submit"
+                            onclick="return confirm('¿Borrar usuario @u.Username?');">
+                      Borrar
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          }
+        }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

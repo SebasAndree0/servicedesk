@@ -1,0 +1,287 @@
+@using System
+@using System.Linq
+
+@{
+    var rolesCsv = (Context.Session.GetString("roles") ?? "");
+    var roles = rolesCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    var esAdmin = roles.Any(r => r.Equals("Admin", StringComparison.OrdinalIgnoreCase));
+
+    var nombre = Context.Session.GetString("display_name") ?? "";
+    var logueado = !string.IsNullOrWhiteSpace(Context.Session.GetString("access_token"));
+
+    var displayName = !string.IsNullOrWhiteSpace(nombre) ? nombre : "Usuario";
+}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@(!string.IsNullOrWhiteSpace(ViewData["Title"]?.ToString()) ? $"{ViewData["Title"]} - NovaDesk Admin" : "NovaDesk Admin")</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/ServiceDesk.Web.styles.css" asp-append-version="true" />
+
+    <style>
+        /* ===== Admin Layout (PRO) ===== */
+
+        html, body {
+            background: #0b0d10 !important;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        body { color: rgba(255,255,255,.92); }
+
+        /* accent */
+        .top-accent {
+            height: 3px;
+            background: linear-gradient(90deg,
+                rgba(255,193,7,.0),
+                rgba(255,193,7,.95),
+                rgba(13,110,253,.85),
+                rgba(255,193,7,.0)
+            );
+            opacity: .98;
+        }
+
+        /* navbar */
+        .nav-glass {
+            background: rgba(16, 18, 23, .96) !important;
+            border-bottom: 1px solid rgba(255,255,255,.10) !important;
+        }
+        .navbar-dark .navbar-nav .nav-link,
+        .navbar-dark .nav-link {
+            color: rgba(255,255,255,.78) !important;
+        }
+        .navbar-dark .navbar-nav .nav-link:hover,
+        .navbar-dark .nav-link:hover {
+            color: rgba(255,255,255,.95) !important;
+        }
+
+        /* brand */
+        .brand-pill{
+            display:inline-flex;
+            align-items:center;
+            gap:.60rem;
+            padding:.38rem .72rem;
+            border-radius:999px;
+            border:1px solid rgba(255,255,255,.14);
+            background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+            box-shadow: 0 10px 30px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.08);
+            text-decoration:none;
+        }
+        .brand-dot{
+            width:10px;
+            height:10px;
+            border-radius:999px;
+            background:#ffc107;
+            box-shadow: 0 0 0 6px rgba(255,193,7,.16), 0 0 18px rgba(255,193,7,.20);
+        }
+        .brand-pill:hover{
+            border-color: rgba(255,255,255,.20);
+            background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+            transform: translateY(-1px);
+            transition: 160ms ease;
+        }
+
+        /* admin shell */
+        .admin-shell{
+            display:flex;
+            gap:18px;
+            padding: 18px 0;
+        }
+
+        /* left menu */
+        .admin-side{
+            width: 260px;
+            flex: 0 0 260px;
+        }
+        .admin-card{
+            background: linear-gradient(180deg, rgba(20,22,28,.78), rgba(14,16,20,.70)) !important;
+            border: 1px solid rgba(255,255,255,.10) !important;
+            border-radius: 18px !important;
+            box-shadow: 0 18px 60px rgba(0,0,0,.45);
+        }
+        .admin-side .p-3{ padding: 18px !important; }
+
+        .admin-side-title{
+            font-weight: 900;
+            letter-spacing: .2px;
+            font-size: 14px;
+            color: rgba(255,255,255,.85);
+            margin-bottom: 10px;
+        }
+        .admin-side a{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            text-decoration:none;
+            color: rgba(255,255,255,.80);
+            border: 1px solid rgba(255,255,255,.10);
+            background: rgba(255,255,255,.04);
+        }
+        .admin-side a:hover{
+            background: rgba(255,255,255,.08);
+            color: rgba(255,255,255,.95);
+            border-color: rgba(255,255,255,.18);
+            transform: translateY(-1px);
+            transition: 140ms ease;
+        }
+        .admin-side a.active{
+            background: rgba(255,193,7,.12);
+            border-color: rgba(255,193,7,.28);
+            color: rgba(255,255,255,.95);
+        }
+        .admin-side small{
+            color: rgba(255,255,255,.55);
+            font-weight: 700;
+        }
+
+        /* page area */
+        .admin-main{
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        /* buttons pro */
+        .nd-btn{
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            gap:.5rem;
+            padding: 10px 14px;
+            border-radius: 999px;
+            font-weight: 900;
+            letter-spacing: .2px;
+            border: 1px solid rgba(255,255,255,.14);
+            background: rgba(255,255,255,.06);
+            color: rgba(255,255,255,.92);
+            text-decoration:none;
+            transition: 140ms ease;
+            min-height: 44px;
+        }
+        .nd-btn:hover{
+            transform: translateY(-1px);
+            background: rgba(255,255,255,.10);
+            border-color: rgba(255,255,255,.22);
+            color: #fff;
+        }
+
+        /* alerts */
+        .alert{
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,.10);
+        }
+
+        /* responsive */
+        @@media (max-width: 991.98px){
+            .admin-shell{ flex-direction: column; }
+            .admin-side{ width: 100%; flex: 0 0 auto; }
+        }
+    </style>
+
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+
+<body>
+<header>
+    <div class="top-accent"></div>
+
+    <nav class="navbar navbar-expand-lg navbar-dark nav-glass">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-semibold" asp-controller="Home" asp-action="Index">
+                <span class="brand-pill">
+                    <span class="brand-dot"></span>
+                    NovaDesk <span style="opacity:.65;font-weight:800;">Admin</span>
+                </span>
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNav"
+                    aria-controls="adminNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="adminNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Home" asp-action="Index">Volver al Panel</a>
+                    </li>
+                </ul>
+
+                <div class="d-flex gap-2 align-items-center">
+                    @if (logueado)
+                    {
+                        <span style="color: rgba(255,255,255,.75); font-weight:800;">@displayName</span>
+                        <form method="post" asp-controller="Auth" asp-action="Logout" class="m-0">
+                            @Html.AntiForgeryToken()
+                            <button class="nd-btn" type="submit">Salir</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        </div>
+    </nav>
+</header>
+
+<div class="container">
+    <div class="admin-shell">
+
+        <aside class="admin-side">
+            <div class="admin-card">
+                <div class="p-3">
+                    <div class="admin-side-title">Administración</div>
+
+                    <a asp-controller="AdminUsers" asp-action="Index"
+                       class="@(ViewContext.RouteData.Values["controller"]?.ToString() == "AdminUsers" ? "active" : "")">
+                        Usuarios
+                        <small>CRUD</small>
+                    </a>
+
+                    <div class="mt-2"></div>
+
+                    <a asp-controller="AdminSla" asp-action="Index"
+                       class="@(ViewContext.RouteData.Values["controller"]?.ToString() == "AdminSla" ? "active" : "")">
+                        SLA
+                        <small>Reglas</small>
+                    </a>
+
+                    <div class="mt-2"></div>
+
+                    <a asp-controller="Tickets" asp-action="DeletedHistory"
+                       class="@(ViewContext.RouteData.Values["controller"]?.ToString() == "Tickets"
+                            && ViewContext.RouteData.Values["action"]?.ToString() == "DeletedHistory"
+                            ? "active" : "")">
+                        Historial de borrados
+                        <small>Log</small>
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <main class="admin-main py-4">
+            @if (TempData["Success"] != null)
+            {
+                <div class="alert alert-success">@TempData["Success"]</div>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger">@TempData["Error"]</div>
+            }
+
+            @RenderBody()
+        </main>
+    </div>
+</div>
+
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

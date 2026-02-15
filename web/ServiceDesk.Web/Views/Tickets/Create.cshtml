@@ -1,0 +1,491 @@
+@using System.Collections.Generic
+@model ServiceDesk.Web.Models.Tickets.TicketCreateRequest
+
+@{
+    ViewData["Title"] = "Nuevo Ticket";
+
+    // ✅ TU APP: login por Session (NO Identity)
+    var username = Context.Session.GetString("username") ?? "";
+    var displayName = Context.Session.GetString("display_name") ?? "";
+
+    if (string.IsNullOrWhiteSpace(username))
+        username = Context.Session.GetString("email") ?? "—";
+
+    var createdByLabel = !string.IsNullOrWhiteSpace(displayName) && username != "—"
+        ? $"{displayName} ({username})"
+        : (!string.IsNullOrWhiteSpace(displayName) ? displayName : username);
+
+    // ✅ lista de asignables (por ahora ViewBag)
+    var assignees = (IEnumerable<string>)(ViewBag.Assignees ?? new List<string>());
+
+    // ✅ valor seleccionado actual (para render inicial)
+    var selectedAssigned = (Model?.AssignedTo ?? "").Trim();
+    var selectedAssignedLabel = string.IsNullOrWhiteSpace(selectedAssigned) ? "Sin asignar" : selectedAssigned;
+
+    // ✅ defaults seguros (si model viene vacío)
+    var prio = (Model?.Priority ?? "P2").Trim();
+    var cat  = (Model?.Category ?? "Software").Trim();
+    var type = (Model?.Type ?? "Incidencia").Trim();
+
+    string PriorityLabel(string v) => v switch
+    {
+        "P1" => "P1 (Crítica)",
+        "P2" => "P2 (Media)",
+        "P3" => "P3 (Baja)",
+        _ => "P2 (Media)"
+    };
+
+    string CategoryLabel(string v) => v switch
+    {
+        "Hardware" => "Hardware",
+        "Software" => "Software",
+        "Redes" => "Redes",
+        _ => "Software"
+    };
+
+    string TypeLabel(string v) => v switch
+    {
+        "Incidencia" => "Incidencia",
+        "Solicitud" => "Solicitud",
+        _ => "Incidencia"
+    };
+}
+
+@section Styles {
+<style>
+/* ===== Tickets/Create - PRO (solo esta página) ===== */
+.tc-wrap{ max-width: 1180px; }
+.tc-sub{ color: rgba(255,255,255,.62); }
+.tc-card{ padding: 22px; }
+
+.tc-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  margin-bottom: 16px;
+}
+.tc-title{
+  font-size: 42px;
+  font-weight: 900;
+  letter-spacing: .2px;
+  margin: 0;
+  line-height: 1.06;
+}
+.tc-badge{
+  display:inline-flex;
+  align-items:center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  border: 1px solid rgba(13,110,253,.35);
+  background: rgba(13,110,253,.12);
+  color: rgba(255,255,255,.92);
+  margin-left: 10px;
+}
+.tc-actions .btn{
+  min-height: 44px;
+  padding: 10px 16px;
+  font-weight: 800;
+  border-radius: 999px;
+}
+
+.tc-glass{
+  background: linear-gradient(180deg, rgba(20,22,28,.78), rgba(14,16,20,.70)) !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 18px 60px rgba(0,0,0,.45);
+}
+
+.tc-hr{
+  height: 1px;
+  background: rgba(255,255,255,.08);
+  margin: 14px 0 18px;
+}
+
+.tc-section-title{
+  font-weight: 900;
+  letter-spacing: .2px;
+  margin: 0 0 10px;
+}
+.tc-section-sub{ color: rgba(255,255,255,.58); font-size: .92rem; margin-top:-4px; }
+
+.form-control, .form-select{
+  background-color: rgba(255,255,255,.06) !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  color: rgba(255,255,255,.92) !important;
+  border-radius: 14px !important;
+}
+.form-control::placeholder{ color: rgba(255,255,255,.40) !important; }
+.form-control:focus, .form-select:focus{
+  background-color: rgba(255,255,255,.08) !important;
+  border-color: rgba(13,110,253,.55) !important;
+  box-shadow: 0 0 0 .2rem rgba(13,110,253,.15) !important;
+}
+
+.tc-help{ color: rgba(255,255,255,.58); font-size: .90rem; }
+
+.tc-files{
+  border: 1px dashed rgba(255,255,255,.18);
+  background: rgba(255,255,255,.03);
+  border-radius: 16px;
+  padding: 14px;
+}
+.tc-filelist{
+  margin-top: 10px;
+  color: rgba(255,255,255,.72);
+  font-size: .92rem;
+}
+.tc-fileitem{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+  margin-top: 8px;
+}
+
+.tc-mini-card{
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.tc-readonly{
+  background: rgba(255,255,255,.04) !important;
+  border-color: rgba(255,255,255,.10) !important;
+  cursor: default;
+}
+
+.btn{ border-radius: 12px; }
+.btn-primary{
+  border-radius: 999px !important;
+  padding: 10px 16px !important;
+  font-weight: 900;
+  border: 1px solid rgba(13,110,253,.55);
+  box-shadow: 0 14px 34px rgba(13,110,253,.18);
+}
+.btn-primary:hover{ box-shadow: 0 18px 44px rgba(13,110,253,.22); }
+
+.btn-outline-secondary{
+  border-radius: 999px !important;
+  padding: 10px 16px !important;
+}
+
+.alert{ border-radius: 14px; border: 1px solid rgba(255,255,255,.10); }
+
+.tc-footer{
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  margin-top: 16px;
+}
+
+/* ===== Dropdown PRO (para evitar el select blanco nativo) ===== */
+.tc-dd-btn{
+  width: 100%;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background-color: rgba(255,255,255,.06) !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  color: rgba(255,255,255,.92) !important;
+  border-radius: 14px !important;
+  padding: .55rem .75rem;
+  min-height: 44px;
+}
+.tc-dd-btn:focus{
+  outline: none;
+  box-shadow: 0 0 0 .2rem rgba(13,110,253,.15) !important;
+  border-color: rgba(13,110,253,.55) !important;
+}
+
+.tc-dd-menu{
+  width: 100%;
+  border-radius: 14px;
+  padding: .35rem;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  background: rgba(20, 22, 28, .98) !important;
+  box-shadow: 0 18px 45px rgba(0,0,0,.45);
+}
+
+.tc-dd-item{
+  border-radius: 10px;
+  padding: .55rem .75rem;
+  color: rgba(255,255,255,.90);
+  cursor: pointer;
+}
+.tc-dd-item:hover{ background: rgba(255,255,255,.08); }
+.tc-dd-item.muted{ color: rgba(255,255,255,.70); }
+</style>
+}
+
+<div class="tc-wrap mx-auto">
+  <div class="tc-head">
+    <div>
+      <h1 class="tc-title">
+        Nuevo Ticket
+        <span class="tc-badge">Soporte</span>
+      </h1>
+      <div class="tc-sub">
+        Crea una solicitud para que el equipo la gestione. Puedes adjuntar evidencia (fotos, PDF, Word, Excel, etc.).
+      </div>
+    </div>
+
+    <div class="tc-actions">
+      <a class="btn btn-outline-secondary" asp-action="Index">Volver</a>
+    </div>
+  </div>
+
+  @if (ViewBag.Error != null)
+  {
+      <div class="alert alert-danger">@ViewBag.Error</div>
+  }
+
+  <div class="tc-glass">
+    <div class="tc-card">
+      <div class="tc-hr"></div>
+
+      <form method="post" asp-action="Create" enctype="multipart/form-data" novalidate>
+        @Html.AntiForgeryToken()
+
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+
+        <div class="row g-3">
+
+          <!-- ===== COLUMNA IZQUIERDA ===== -->
+          <div class="col-12 col-lg-8">
+            <div class="tc-mini-card">
+              <h5 class="tc-section-title">Resumen</h5>
+              <div class="tc-section-sub">Lo esencial para entender el caso rápido.</div>
+
+              <div class="mt-3">
+                <label class="form-label">Título <span class="text-warning">*</span></label>
+                <input class="form-control"
+                       asp-for="Title"
+                       placeholder="Ej: Error en POS al cobrar"
+                       autocomplete="off" />
+                <div class="tc-help mt-1">Resume el problema en una frase.</div>
+                <span class="text-danger" asp-validation-for="Title"></span>
+              </div>
+
+              <div class="mt-3">
+                <label class="form-label">Descripción</label>
+                <textarea class="form-control"
+                          asp-for="Description"
+                          rows="6"
+                          placeholder="Describe qué pasó, dónde, y cómo reproducirlo..."></textarea>
+                <div class="tc-help mt-1">
+                  Mientras más detalles, más rápido se resuelve (pasos, mensajes de error, etc.).
+                </div>
+                <span class="text-danger" asp-validation-for="Description"></span>
+              </div>
+            </div>
+
+            <!-- ===== Evidencia ===== -->
+            <div class="tc-mini-card mt-3">
+              <h5 class="tc-section-title">Evidencia</h5>
+              <div class="tc-section-sub">Adjunta pruebas para acelerar el diagnóstico.</div>
+
+              <div class="tc-files mt-3">
+                <!-- ✅ Aunque el controller lo ignora y fuerza CurrentBy(), esto no molesta -->
+                <input type="hidden" name="EvidenceBy" value="@username" />
+
+                <div class="row g-2 align-items-end">
+                  <div class="col-12 col-md-6">
+                    <label class="form-label">Subido por</label>
+                    <input class="form-control tc-readonly" value="@createdByLabel" readonly />
+                    <div class="tc-help mt-1">Se envía automáticamente al backend.</div>
+                  </div>
+                </div>
+
+                <div class="mt-3">
+                  <input class="form-control"
+                         type="file"
+                         id="evidenceFiles"
+                         name="EvidenceFiles"
+                         multiple
+                         accept=".png,.jpg,.jpeg,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" />
+
+                  <div class="tc-help mt-2">
+                    Puedes adjuntar varias evidencias (fotos, PDF, Word, Excel, etc.).
+                  </div>
+
+                  <div class="tc-filelist" id="fileList" style="display:none;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== COLUMNA DERECHA ===== -->
+          <div class="col-12 col-lg-4">
+            <div class="tc-mini-card">
+              <h5 class="tc-section-title">Clasificación</h5>
+              <div class="tc-section-sub">Afecta SLA, colas y visibilidad.</div>
+
+              <!-- ✅ Prioridad (dropdown PRO dark) -->
+              <div class="mt-3">
+                <label class="form-label">Prioridad</label>
+                <input type="hidden" asp-for="Priority" id="PriorityHidden" value="@prio" />
+
+                <div class="dropdown w-100">
+                  <button class="tc-dd-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <span id="PriorityLabel">@PriorityLabel(prio)</span>
+                  </button>
+                  <ul class="dropdown-menu tc-dd-menu">
+                    <li><div class="tc-dd-item" data-target="PriorityHidden" data-label="PriorityLabel" data-value="P1">P1 (Crítica)</div></li>
+                    <li><div class="tc-dd-item" data-target="PriorityHidden" data-label="PriorityLabel" data-value="P2">P2 (Media)</div></li>
+                    <li><div class="tc-dd-item" data-target="PriorityHidden" data-label="PriorityLabel" data-value="P3">P3 (Baja)</div></li>
+                  </ul>
+                </div>
+
+                <div class="tc-help mt-1">P1 = impacto alto / detiene operación.</div>
+                <span class="text-danger" asp-validation-for="Priority"></span>
+              </div>
+
+              <!-- ✅ Categoría (dropdown PRO dark) -->
+              <div class="mt-3">
+                <label class="form-label">Categoría</label>
+                <input type="hidden" asp-for="Category" id="CategoryHidden" value="@cat" />
+
+                <div class="dropdown w-100">
+                  <button class="tc-dd-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <span id="CategoryLabel">@CategoryLabel(cat)</span>
+                  </button>
+                  <ul class="dropdown-menu tc-dd-menu">
+                    <li><div class="tc-dd-item" data-target="CategoryHidden" data-label="CategoryLabel" data-value="Software">Software</div></li>
+                    <li><div class="tc-dd-item" data-target="CategoryHidden" data-label="CategoryLabel" data-value="Hardware">Hardware</div></li>
+                    <li><div class="tc-dd-item" data-target="CategoryHidden" data-label="CategoryLabel" data-value="Redes">Redes</div></li>
+                  </ul>
+                </div>
+
+                <div class="tc-help mt-1">Debe coincidir con los valores del sistema.</div>
+                <span class="text-danger" asp-validation-for="Category"></span>
+              </div>
+
+              <!-- ✅ Tipo (dropdown PRO dark) -->
+              <div class="mt-3">
+                <label class="form-label">Tipo</label>
+                <input type="hidden" asp-for="Type" id="TypeHidden" value="@type" />
+
+                <div class="dropdown w-100">
+                  <button class="tc-dd-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <span id="TypeLabel">@TypeLabel(type)</span>
+                  </button>
+                  <ul class="dropdown-menu tc-dd-menu">
+                    <li><div class="tc-dd-item" data-target="TypeHidden" data-label="TypeLabel" data-value="Incidencia">Incidencia</div></li>
+                    <li><div class="tc-dd-item" data-target="TypeHidden" data-label="TypeLabel" data-value="Solicitud">Solicitud</div></li>
+                  </ul>
+                </div>
+
+                <div class="tc-help mt-1">Incidencia = algo falló. Solicitud = requerimiento.</div>
+                <span class="text-danger" asp-validation-for="Type"></span>
+              </div>
+            </div>
+
+            <div class="tc-mini-card mt-3">
+              <h5 class="tc-section-title">Asignación</h5>
+              <div class="tc-section-sub">Quién lo toma / quién lo reportó.</div>
+
+              <!-- ✅ PRO: Asignado a = dropdown bootstrap oscuro -->
+              <div class="mt-3">
+                <label class="form-label">Asignado a</label>
+
+                <input type="hidden" asp-for="AssignedTo" id="AssignedToHidden" value="@selectedAssigned" />
+
+                <div class="dropdown w-100">
+                  <button class="tc-dd-btn dropdown-toggle"
+                          type="button"
+                          id="assigneeBtn"
+                          data-bs-toggle="dropdown"
+                          aria-expanded="false">
+                      <span id="assigneeLabel">@selectedAssignedLabel</span>
+                  </button>
+
+                  <ul class="dropdown-menu tc-dd-menu" aria-labelledby="assigneeBtn">
+                    <li><div class="tc-dd-item muted" data-target="AssignedToHidden" data-label="assigneeLabel" data-value="">Sin asignar</div></li>
+                    <li><hr class="dropdown-divider" /></li>
+
+                    @foreach (var a in assignees)
+                    {
+                      <li><div class="tc-dd-item" data-target="AssignedToHidden" data-label="assigneeLabel" data-value="@a">@a</div></li>
+                    }
+                  </ul>
+                </div>
+
+                <div class="tc-help mt-1">Puedes dejarlo sin asignar y asignarlo después.</div>
+                <span class="text-danger" asp-validation-for="AssignedTo"></span>
+              </div>
+
+              <div class="mt-3">
+                <label class="form-label">Creado por</label>
+                <input class="form-control tc-readonly" value="@createdByLabel" readonly />
+                <div class="tc-help mt-1">Se completa automáticamente desde la sesión.</div>
+              </div>
+
+              <div class="tc-footer">
+                <a class="btn btn-outline-secondary" asp-action="Index">Cancelar</a>
+                <button type="submit" class="btn btn-primary">Crear ticket</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+  <partial name="_ValidationScriptsPartial" />
+  <script>
+    (function () {
+      // ===== File list preview =====
+      const input = document.getElementById("evidenceFiles");
+      const list = document.getElementById("fileList");
+
+      if (input && list) {
+        input.addEventListener("change", function () {
+          const files = Array.from(input.files || []);
+          if (!files.length) {
+            list.style.display = "none";
+            list.innerHTML = "";
+            return;
+          }
+
+          list.style.display = "block";
+          list.innerHTML = files.map(f => {
+            const sizeKb = Math.round((f.size || 0) / 1024);
+            return `
+              <div class="tc-fileitem">
+                <div class="text-truncate" style="max-width: 70%;">${f.name}</div>
+                <div class="text-secondary">${sizeKb} KB</div>
+              </div>
+            `;
+          }).join("");
+        });
+      }
+
+      // ===== Generic handler: dropdown PRO -> hidden input + label =====
+      document.querySelectorAll(".tc-dd-item[data-target]").forEach(el => {
+        el.addEventListener("click", () => {
+          const targetId = el.getAttribute("data-target");
+          const labelId  = el.getAttribute("data-label");
+          const value    = el.getAttribute("data-value") ?? "";
+          const text     = (el.textContent ?? "").trim();
+
+          const input = document.getElementById(targetId);
+          const label = document.getElementById(labelId);
+
+          if (input) input.value = value;
+          if (label) label.textContent = text;
+        });
+      });
+    })();
+  </script>
+}
