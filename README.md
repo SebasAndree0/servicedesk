@@ -35,7 +35,7 @@ The project is divided into two main applications:
   * Contracts (DTOs)
 * Entity Framework Core
 * RESTful API
-
+![Admin Panel](https://raw.githubusercontent.com/SebasAndree0/servicedesk/main/Screenshot_920.png)
 ---
 
 ### ✨ Features
@@ -49,9 +49,9 @@ The project is divided into two main applications:
 * 📎 Attachments / evidence
 * 🧾 Deletion history (audit log)
 * 🔐 Authentication & role management
-
+![Admin Panel](https://raw.githubusercontent.com/SebasAndree0/servicedesk/main/Screenshot_920.png)
 ---
-
+![Edit Ticket](https://raw.githubusercontent.com/SebasAndree0/servicedesk/main/Screenshot_925.png)
 ### 🛠️ Technologies
 
 * C# / .NET (ASP.NET Core)
@@ -59,11 +59,11 @@ The project is divided into two main applications:
 * SQL Server / SQLite
 * Razor Views (MVC)
 * HTML / CSS / JavaScript
-
+![SLA Configuration](https://raw.githubusercontent.com/SebasAndree0/servicedesk/main/Screenshot_922.png)
 ---
-
+![Login](https://raw.githubusercontent.com/SebasAndree0/servicedesk/main/Screenshot_926.png)
 ### ▶️ How to run
-
+![Crear Ticket Usuario](https://raw.githubusercontent.com/SebasAndree0/servicedesk/main/Screenshot_921.png)
 ```bash
 # Clone repository
 git clone https://github.com/youruser/novadesk.git
@@ -85,7 +85,7 @@ dotnet run
 * 📊 Advanced analytics dashboard
 * 🤖 AI integration (auto replies)
 * 🌐 Multi-tenant support
-
+![Home](https://raw.githubusercontent.com/SebasAndree0/servicedesk/main/Screenshot_924.png)
 ---
 
 ---
@@ -125,7 +125,7 @@ El proyecto está dividido en dos aplicaciones principales:
   * Contracts (DTOs)
 * Entity Framework Core
 * API RESTful
-
+![Historial Borrados](https://raw.githubusercontent.com/SebasAndree0/servicedesk/main/Screenshot_923.png)
 ---
 
 ### ✨ Funcionalidades
@@ -141,7 +141,7 @@ El proyecto está dividido en dos aplicaciones principales:
 * 🔐 Autenticación y control de roles
 
 ---
-
+![Editar Ticket](https://raw.githubusercontent.com/SebasAndree0/servicedesk/main/Screenshot_925.png)
 ### 🛠️ Tecnologías
 
 * C# / .NET (ASP.NET Core)
@@ -151,7 +151,7 @@ El proyecto está dividido en dos aplicaciones principales:
 * HTML / CSS / JavaScript
 
 ---
-
+![Login](https://raw.githubusercontent.com/SebasAndree0/servicedesk/main/Screenshot_926.png)
 ### ▶️ Cómo ejecutar
 
 ```bash
